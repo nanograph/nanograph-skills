@@ -1,6 +1,6 @@
 # nanograph-skills
 
-Official agent skills for [nanograph](https://nanogra.ph) — an embedded local-first typed property graph database.
+Official agent skills for [nanograph](https://github.com/nanograph/nanograph) — an embedded local-first typed property graph database.
 
 These skills teach AI agents (Claude Code, Codex, OpenCode, and others) how to safely operate, query, and migrate nanograph databases.
 
