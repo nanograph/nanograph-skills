@@ -1,0 +1,9 @@
+{
+  "name": "nanograph",
+  "version": "1.0.0",
+  "description": "Skills for operating nanograph embedded graph databases",
+  "author": {
+    "name": "Andrew",
+    "email": "andrew@collectivealab.io"
+  }
+}
