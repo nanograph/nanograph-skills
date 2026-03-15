@@ -5,7 +5,7 @@ Thanks for your interest in contributing skills to nanograph!
 ## Getting Started
 
 1. Fork this repo and clone it locally
-2. Create a new skill directory under `plugins/nanograph/skills/`
+2. Create a new skill directory under `skills/`
 3. Use the [skill-creator](https://github.com/anthropics/skills/tree/main/skills/skill-creator) skill to generate a well-structured skill from scratch
 
 ## Skill Guidelines

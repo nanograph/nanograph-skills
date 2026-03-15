@@ -1,14 +1,12 @@
 # nanograph-skills
 
-This repo is a skill marketplace for AI agents. It contains skills that teach agents how to operate nanograph databases.
+This repo contains agent skills that teach AI agents how to operate nanograph databases.
 
 ## Structure
 
-- `plugins/nanograph/` — the nanograph plugin
-- `plugins/nanograph/.claude-plugin/plugin.json` — plugin manifest
-- `plugins/nanograph/skills/<name>/SKILL.md` — individual skills with YAML frontmatter
-- `plugins/nanograph/skills/<name>/references/` — overflow documentation for skills
-- `.claude-plugin/marketplace.json` — top-level marketplace catalog
+- `skills/<name>/SKILL.md` — individual skills with YAML frontmatter
+- `skills/<name>/references/` — overflow documentation for skills
+
 ## Conventions
 
 - Skill names use kebab-case and must match their directory name
