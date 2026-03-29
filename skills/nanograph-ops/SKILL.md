@@ -1,6 +1,8 @@
 ---
 name: nanograph-ops
 description: "Operational guide for managing nanograph embedded graph databases. Use this skill whenever the user works with nanograph files (.pg schemas, .gq queries, nanograph.toml, *.nano/ databases), asks about graph data operations, mutations, schema changes, data loading, querying, search, or any nanograph CLI command. Also trigger when you see nanograph-related files in the project or the user mentions graph databases, property graphs, or Lance datasets in the context of this codebase."
+metadata:
+  summary: "Operate nanograph databases — schema design, mutations, querying, search, blobs, and maintenance."
 ---
 
 # NanoGraph Operations
@@ -80,7 +82,7 @@ node Client {
 }
 ```
 
-Add `@description("...")` and `@instruction("...")` to types, properties, and queries. These surface in `describe --format json` and `run` output, giving agents structured context about what things mean and how to use them.
+Add `@description("...")` to types, properties, and queries. Add `@instruction("...")` to types and queries (not properties). These surface in `describe --format json` and `run` output, giving agents structured context about what things mean and how to use them.
 
 ## Aliases
 
@@ -109,13 +111,15 @@ Always set `format` in the alias. Use `json` for reads, `jsonl` for mutations. U
 
 ## Output
 
-Agents should use `--format json` or `--format jsonl`, never parse `table` output. For non-run commands, use `--json`:
+Agents should use `--format json`, `--format jsonl`, or `--format kv`, never parse `table` output. For non-run commands, use `--json`:
 
 ```bash
 nanograph describe --json
 nanograph migrate --dry-run --json
 nanograph doctor --json
 ```
+
+For `nanograph run`, `json` wraps output in `{metadata, rows}` and `jsonl` emits a metadata header record first — both carry query `@description` and `@instruction`. Use `--quiet` to suppress human-readable output while keeping machine formats.
 
 ## Post-change workflow
 
@@ -144,12 +148,76 @@ Preview with `nanograph schema-diff --from old.pg --to new.pg` or `nanograph mig
 
 If migration fails and leaves a stale journal (`*.migration.journal.json` in PREPARED state), delete the journal before retrying.
 
+## Embedding providers
+
+nanograph supports OpenAI and Gemini embedding providers. Set in `nanograph.toml`:
+
+```toml
+[embedding]
+provider = "openai"   # or "gemini" or "mock"
+```
+
+Put the API key in `.env.nano`:
+
+```bash
+OPENAI_API_KEY=sk-...
+# or
+GEMINI_API_KEY=...
+```
+
+Defaults: `text-embedding-3-small` (OpenAI, 1536 dims) and `gemini-embedding-2-preview` (Gemini, 3072 dims). Both support dimensionality reduction — nanograph passes the schema's `Vector(dim)` to the API automatically.
+
+If no provider is set, nanograph auto-detects: Gemini when only `GEMINI_API_KEY` is present, OpenAI otherwise.
+
+After switching providers, re-embed everything (not `--only-null`) because old vectors came from a different model:
+
+```bash
+nanograph embed --reindex
+```
+
 ## Search
 
-Scope with graph traversal first, then rank. Do not search the entire graph and post-filter in application code.
+nanograph supports lexical search, semantic search, and hybrid ranking — all in the query language.
+
+### Text search predicates
+
+Use these in the `match` block as filters:
+
+| Predicate | Behavior |
+|-----------|----------|
+| `search($c.bio, $q)` | Token match — all query tokens must be present |
+| `fuzzy($c.bio, $q)` | Typo-tolerant approximate match |
+| `match_text($c.bio, $q)` | Phrase / contiguous token match |
+
+### Semantic search
+
+`nearest($c.embedding, $q)` returns cosine distance (lower = closer). Requires `limit`.
+
+### Ranked and hybrid search
+
+Use scoring functions in `return` and `order`:
+
+- `bm25($c.bio, $q)` — lexical relevance score (higher = better, use `desc`)
+- `nearest($c.embedding, $q)` — cosine distance (lower = closer, ascending default)
+- `rrf(nearest(...), bm25(...))` — hybrid fusion (higher = better, use `desc`)
 
 ```
-// Right — traverse, then rank
+query hybrid_search($q: String) {
+    match { $c: Character }
+    return {
+        $c.slug,
+        rrf(nearest($c.embedding, $q), bm25($c.bio, $q)) as score
+    }
+    order { rrf(nearest($c.embedding, $q), bm25($c.bio, $q)) desc }
+    limit 10
+}
+```
+
+### Graph-constrained search
+
+Scope with traversal first, then rank — this is nanograph's core strength:
+
+```
 query client_signals($client: String, $q: String) {
     match {
         $c: Client { slug: $client }
@@ -162,6 +230,53 @@ query client_signals($client: String, $q: String) {
 ```
 
 After adding `@embed(...)` fields, backfill vectors: `nanograph embed --only-null`. Use `--reindex` if the field has `@index`.
+
+## Blobs and media
+
+nanograph stores media as normal nodes with external URIs — not as blob bytes inside `.nano/`. This keeps the database small and Git-friendly while supporting text-to-image search.
+
+### Schema pattern
+
+```
+node PhotoAsset {
+    slug: String @key
+    uri: String @media_uri(mime)
+    mime: String
+    embedding: Vector(768)? @embed(uri) @index
+}
+
+edge HasPhoto: Product -> PhotoAsset
+```
+
+`@media_uri(mime)` marks the field as an external media URI and names the sibling mime property. `@embed(uri)` on a `@media_uri` field triggers multimodal (image) embedding, not text embedding.
+
+### Loading media
+
+Supported input formats in JSONL:
+
+| Format | Behavior |
+|--------|----------|
+| `@file:path/to/image.jpg` | Imports into media root, stores `file://` URI |
+| `@base64:...` | Decodes and imports into media root |
+| `@uri:https://example.com/img.jpg` | Stores URI directly, no copy |
+| `@uri:file:///path/img.jpg` | Stores URI directly |
+
+```json
+{"type": "PhotoAsset", "data": {"slug": "space", "uri": "@file:photos/space.jpg"}}
+```
+
+### Multimodal provider
+
+Gemini is the practical multimodal provider today. OpenAI embeddings are text-only in nanograph.
+
+```toml
+[embedding]
+provider = "gemini"
+```
+
+Current limits: `image/png` and `image/jpeg` only, max 20 MB inline, 6 images per batch. `s3://` URIs are not directly embeddable — use `@file:` import, presigned HTTPS URLs, or import first.
+
+For detailed patterns and provider migration, see `references/blobs.md`.
 
 ## JSONL format
 
@@ -194,7 +309,7 @@ Keep the CLI up to date: `brew upgrade nanograph`. Check version first when some
 
 ## Lance storage format
 
-nanograph 1.0 uses Lance v3 with storage format v2.2. Older databases may use v2. Check with `nanograph doctor --verbose`. There is a dedicated migration path for upgrading v2 to v2.2 — back up first.
+nanograph 1.x links against Lance v3, which writes new datasets in storage format 2.2. Databases created with earlier versions use format 2.0 — both remain readable. Format 2.2 provides better compression for text, enums, dates, and vector columns. Check with `nanograph doctor --verbose`. There is a dedicated migration path for upgrading 2.0 to 2.2 — back up first.
 
 ## Deep reference
 

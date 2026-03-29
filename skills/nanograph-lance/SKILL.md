@@ -1,83 +1,82 @@
 ---
 name: nanograph-lance
 description: "Safely migrate a nanograph database from Lance storage format v2 to v2.2. Use this skill when the user needs to upgrade their nanograph database storage format, when `nanograph doctor --verbose` shows Lance v2 datasets, when the user mentions Lance format migration or storage upgrade, or when upgrading from nanograph pre-1.0 to 1.0+. This is a destructive multi-step operation that requires careful validation — the skill ensures nothing is lost."
+metadata:
+  summary: "Safely migrate a nanograph database from Lance storage format v2 to v2.2."
 ---
 
 # Lance Storage Format Migration (v2 → v2.2)
 
-nanograph 1.0 uses Lance v3, which writes datasets in Lance storage format v2.2. Databases created with earlier nanograph versions use format v2. Both formats are readable, but v2.2 is required for new Lance features and better performance.
+nanograph 1.x links against Lance v3, which writes new datasets in Lance storage format 2.2. Databases created with earlier nanograph versions use format 2.0. Both remain readable and operational in nanograph 1.x.
+
+Note: "Lance v3" refers to the Lance SDK/library version that nanograph links against, while "format 2.0" and "format 2.2" refer to the on-disk storage format that the SDK reads and writes.
 
 This skill guides you through a safe export-rebuild-verify-swap migration. The process creates a fresh database alongside the old one — the old database is never modified until the new one is fully verified.
 
+## Why upgrade to 2.2
+
+**Better compression** — nanograph datasets are mostly text, enums, dates, graph relationship columns, and vector columns. Format 2.2 improves compression across all of these, resulting in less disk usage, cheaper backups, and less I/O during open, scan, compact, and cleanup operations.
+
+**Safe gradual adoption** — nanograph 1.x can create new databases on 2.2, continue opening and operating existing 2.0 databases, and does not force an in-place file-format migration to upgrade the CLI. You can upgrade nanograph immediately and decide later whether to migrate existing databases.
+
 ## When to use this
 
-Run `nanograph doctor --verbose` and look at the storage format column. If any datasets show `v2`, migration is recommended. If all show `v2.2`, no migration is needed.
+Run `nanograph doctor --verbose` and look at the storage format column. If any datasets show `2.0`, migration is recommended. If all show `2.2`, no migration is needed.
 
-## What you will lose
+## What the migration preserves and what it does not
 
-Be upfront about this before starting:
+**Preserved:** All node and edge records, schema, property values, and graph structure.
 
-- **CDC history** — the transaction log and CDC event log do not survive export/reimport. The new database starts with a fresh transaction history.
-- **Dataset versions** — Lance version history is reset. Time-travel to old versions is no longer possible.
-- **Computed embeddings** — vectors from `@embed(...)` fields are stripped during export (to avoid format issues) and must be regenerated. This costs API calls if using a real embedding provider.
+**Not preserved:**
 
-Records, edges, schema, and all user data are preserved.
+- **CDC history** — the transaction log (`_tx_catalog.jsonl`) and CDC event log (`_cdc_log.jsonl`) do not survive export/reimport. The new database starts with a fresh transaction history.
+- **Dataset versions** — Lance version history is reset. Time-travel to previous dataset versions is no longer possible.
+- **Computed embeddings** — vectors from `@embed(...)` fields are stripped during export and regenerated afterward. If using a real embedding provider (`provider = "openai"` or `provider = "gemini"`), this makes API calls.
 
-## Pre-flight
+## Migration steps
 
-Before starting, verify the current state and back up:
+Substitute `<db>` with the actual database name (e.g., `omni`, `starwars`, `app`). If the project has a `nanograph.toml` with `db.default_path`, the `--db` flags can be omitted for most commands.
+
+### Step 1: Pre-flight
+
+Verify the current state and back up:
 
 ```bash
-# 1. Check current format — confirm migration is actually needed
+# Confirm migration is needed
 nanograph doctor --verbose
 
-# 2. Record current row counts for later verification
+# Record current row counts for later verification
 nanograph describe --json > /tmp/pre-migration-describe.json
 
-# 3. Back up the entire database directory
+# Back up the entire database directory
 cp -r <db>.nano <db>.nano.backup
 ```
 
 Do not skip the backup. If anything goes wrong, `cp -r <db>.nano.backup <db>.nano` restores the original.
 
-## Migration steps
+### Step 2: Export
 
-Adapt `<db>` to the actual database name (e.g., `omni`, `starwars`, `app`). If the project has a `nanograph.toml` with `db.default_path`, the `--db` flags can be omitted for most commands.
-
-### Step 1: Export
-
-Export the full graph without embeddings. Embedding vectors are stripped because they may have format-specific storage details, and will be regenerated cleanly in step 5.
+Export the full graph without embeddings. Embedding vectors are stripped because they will be regenerated cleanly in step 6.
 
 ```bash
 nanograph export --db <db>.nano --format jsonl --no-embeddings > <db>-export.jsonl
 ```
 
-### Step 2: Validate the export
+### Step 3: Validate the export
 
-Count nodes and edges in the export and compare against the live database. Do not proceed if counts don't match.
-
-```bash
-# Count exported nodes (lines with "type" key)
-grep -c '"type"' <db>-export.jsonl
-
-# Count exported edges (lines with "edge" key)
-grep -c '"edge"' <db>-export.jsonl
-
-# Compare against nanograph describe output
-nanograph describe --db <db>.nano
-```
-
-If the schema has been updated since the last load (e.g., new enum values were added), some exported records may contain values that are invalid under the current schema. Check the export against the schema before proceeding:
+Compare node and edge counts against the live database:
 
 ```bash
-nanograph check --query queries.gq
+grep -c '"type"' <db>-export.jsonl    # node count
+grep -c '"edge"' <db>-export.jsonl    # edge count
+nanograph describe --db <db>.nano     # compare
 ```
 
-If you find invalid enum values or other schema mismatches in the export, fix them with targeted jq or sed before loading. Document what you fixed.
+If the schema has been updated since the last load, some exported records may contain values that are invalid under the current schema (e.g., old enum values). Check the export against the schema and fix any mismatches with targeted `jq` or `sed` before loading. Document what was fixed.
 
-### Step 3: Init a new database
+### Step 4: Create a new database
 
-Create a fresh database from the current schema. Use a temporary name — never overwrite the original until verification is complete.
+Initialize from the current schema. Use a temporary name — never overwrite the original until verification is complete.
 
 ```bash
 nanograph init --db <db>-v2.nano --schema <schema_path>
@@ -85,15 +84,15 @@ nanograph init --db <db>-v2.nano --schema <schema_path>
 
 Use the schema from `nanograph.toml`'s `schema.default_path`, or from `<db>.nano/schema.pg` if the project doesn't keep a separate schema file.
 
-### Step 4: Load the exported data
+### Step 5: Load the exported data
 
 ```bash
 nanograph load --db <db>-v2.nano --data <db>-export.jsonl --mode overwrite
 ```
 
-If the load fails with schema validation errors, fix the export data (step 2) and retry. Do not use `--mode append` — this is a clean rebuild.
+If the load fails with schema validation errors, fix the export (step 3) and retry.
 
-### Step 5: Regenerate embeddings
+### Step 6: Regenerate embeddings
 
 If the schema has any `@embed(...)` properties, regenerate vectors:
 
@@ -101,16 +100,14 @@ If the schema has any `@embed(...)` properties, regenerate vectors:
 nanograph embed --db <db>-v2.nano
 ```
 
-This calls the embedding provider configured in `nanograph.toml` or `.env.nano`. If using `provider = "mock"`, this is instant. If using `provider = "openai"`, this makes API calls and may take time depending on data volume.
+This calls the embedding provider configured in `nanograph.toml` or `.env.nano`. With `provider = "mock"`, this is instant. With `provider = "openai"` or `provider = "gemini"`, this makes API calls proportional to data volume. Scope to a single type with `--type <NodeType>` if needed.
 
-If only some types have `@embed`, you can scope: `nanograph embed --db <db>-v2.nano --type Signal`.
-
-### Step 6: Verify the new database
+### Step 7: Verify the new database
 
 This is the most important step. Do not skip any check.
 
 ```bash
-# Confirm storage format is v2.2
+# Confirm storage format is 2.2
 nanograph doctor --db <db>-v2.nano --verbose
 
 # Compare row counts against pre-migration snapshot
@@ -125,35 +122,24 @@ Compare the row counts from `/tmp/pre-migration-describe.json` and `/tmp/post-mi
 Then run smoke queries — especially any that touch search, traversal, and aggregation:
 
 ```bash
-# If the project has aliases
 nanograph run search "test query" --db <db>-v2.nano
-
-# Or use explicit query form
-nanograph run --db <db>-v2.nano --query queries.gq --name <some_query> --param key=value
+nanograph run --db <db>-v2.nano --query queries.gq --name <query> --param key=value
 ```
 
 If any check fails, stop. The old database is untouched — investigate the failure before proceeding.
 
-### Step 7: Swap databases
+### Step 8: Swap databases
 
 Only after all verification passes:
 
 ```bash
-# Move old database aside (keep it until you're confident)
 mv <db>.nano <db>.nano.old
-
-# Rename new database to the expected name
 mv <db>-v2.nano <db>.nano
 ```
 
-If `nanograph.toml` has `db.default_path`, no config change is needed — the path hasn't changed. If you used a different path, update `nanograph.toml`:
+If `nanograph.toml` uses `db.default_path`, no config change is needed — the path has not changed.
 
-```toml
-[db]
-default_path = "<db>.nano"
-```
-
-### Step 8: Final verification
+### Step 9: Final verification
 
 ```bash
 nanograph doctor --verbose
@@ -162,59 +148,49 @@ nanograph describe
 
 Confirm everything works with the swapped database. Run a few queries.
 
-### Step 9: Clean up
+### Step 10: Clean up
 
-Once you're confident the migration succeeded:
+Once confident the migration succeeded:
 
 ```bash
-# Remove the backup and old database
 rm -rf <db>.nano.backup
 rm -rf <db>.nano.old
-
-# Remove the export file
 rm <db>-export.jsonl
 rm /tmp/pre-migration-describe.json /tmp/post-migration-describe.json
 ```
 
-Do not rush this step. Keep the backup for at least a day. If the migration happened in a git-tracked project and the database was committed, you can always recover from git history.
+Keep the backup for at least a day before deleting. If the migration happened in a git-tracked project and the database was committed, you can always recover from git history.
 
 ## Rollback
 
-If anything goes wrong at any point before step 7:
+**Before step 8** (swap): the old database is still in place. Clean up the failed attempt:
 
 ```bash
-# Nothing has changed — the old database is still in place
-# Just clean up the failed attempt
 rm -rf <db>-v2.nano
 rm <db>-export.jsonl
 ```
 
-If something goes wrong after step 7 (swap):
+**After step 8** (swap): restore from backup:
 
 ```bash
-# Restore from backup
 rm -rf <db>.nano
 mv <db>.nano.old <db>.nano
-# or from the earlier backup
-cp -r <db>.nano.backup <db>.nano
 ```
 
 ## Checklist
 
-Use this to track progress:
-
-- [ ] `doctor --verbose` confirms v2 format
+- [ ] `doctor --verbose` confirms current storage format (`2.0` or `2.2`)
 - [ ] Backup created (`<db>.nano.backup`)
 - [ ] Pre-migration row counts saved
-- [ ] Export completed (`--no-embeddings`)
+- [ ] Export completed with `--no-embeddings`
 - [ ] Export counts match live database
 - [ ] New database initialized from current schema
 - [ ] Data loaded into new database
 - [ ] Embeddings regenerated (if applicable)
-- [ ] New database shows v2.2 in `doctor --verbose`
+- [ ] New database shows 2.2 in `doctor --verbose`
 - [ ] Row counts match between old and new
 - [ ] `doctor` passes on new database
 - [ ] Smoke queries return expected results
 - [ ] Databases swapped
 - [ ] Final `doctor` and `describe` pass
-- [ ] Old database and backup cleaned up
+- [ ] Backup and old database cleaned up
