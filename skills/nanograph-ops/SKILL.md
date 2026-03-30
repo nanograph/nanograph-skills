@@ -1,11 +1,18 @@
 ---
 name: nanograph-ops
 description: "Operational guide for managing nanograph embedded graph databases. Use this skill whenever the user works with nanograph files (.pg schemas, .gq queries, nanograph.toml, *.nano/ databases), asks about graph data operations, mutations, schema changes, data loading, querying, search, or any nanograph CLI command. Also trigger when you see nanograph-related files in the project or the user mentions graph databases, property graphs, or Lance datasets in the context of this codebase."
-metadata:
-  summary: "Operate nanograph databases — schema design, mutations, querying, search, blobs, and maintenance."
 ---
 
 # NanoGraph Operations
+
+## Summary
+
+Operate nanograph databases — schema design, mutations, querying, search, blobs, and maintenance.
+
+- Schema-first workflow: design `.pg` schemas, write `.gq` queries, run mutations through the CLI
+- Lexical, semantic, and hybrid search with graph-constrained scoping
+- Blob and multimodal media support with Gemini embeddings (images, audio, video, PDFs)
+- Safe schema migration, compaction, and Lance storage format upgrades
 
 This skill teaches you how to operate a nanograph database correctly. nanograph is an embedded local-first typed property graph DB — think SQLite for graphs. The common mistakes agents make are well-documented and entirely preventable if you follow these rules.
 

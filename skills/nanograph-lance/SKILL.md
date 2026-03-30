@@ -1,11 +1,17 @@
 ---
 name: nanograph-lance
 description: "Safely migrate a nanograph database from Lance storage format v2 to v2.2. Use this skill when the user needs to upgrade their nanograph database storage format, when `nanograph doctor --verbose` shows Lance v2 datasets, when the user mentions Lance format migration or storage upgrade, or when upgrading from nanograph pre-1.0 to 1.0+. This is a destructive multi-step operation that requires careful validation — the skill ensures nothing is lost."
-metadata:
-  summary: "Safely migrate a nanograph database from Lance storage format v2 to v2.2."
 ---
 
 # Lance Storage Format Migration (v2 → v2.2)
+
+## Summary
+
+Safely migrate a nanograph database from Lance storage format 2.0 to 2.2.
+
+- Export-rebuild-verify-swap workflow that never modifies the original database until verified
+- Format 2.2 provides better compression for text, enums, dates, and vector columns
+- Step-by-step checklist with rollback instructions at every stage
 
 nanograph 1.x links against Lance v3, which writes new datasets in Lance storage format 2.2. Databases created with earlier nanograph versions use format 2.0. Both remain readable and operational in nanograph 1.x.
 
