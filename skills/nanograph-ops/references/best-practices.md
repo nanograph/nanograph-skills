@@ -381,7 +381,7 @@ Then put the matching API key in `.env.nano`:
 # For OpenAI
 OPENAI_API_KEY=sk-...
 
-# For Gemini
+# For Gemini — get a key at https://aistudio.google.com/
 GEMINI_API_KEY=...
 ```
 

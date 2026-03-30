@@ -75,7 +75,7 @@ Relative `@file:` paths are resolved relative to the source JSONL file, so they 
 
 ## Multimodal embeddings
 
-`@embed(source_prop)` works on media URI properties. When the source has `@media_uri(...)`, NanoGraph treats `@embed(uri)` as multimodal embedding, not text embedding.
+`@embed(source_prop)` works on media URI properties. When the source has `@media_uri(...)`, NanoGraph treats `@embed(uri)` as multimodal embedding (images, audio, video, PDFs), not text embedding.
 
 When the embedding is null or missing:
 - `nanograph load` generates the vector automatically
@@ -92,7 +92,7 @@ model = "gemini-embedding-2-preview"
 ```
 
 ```bash
-GEMINI_API_KEY=...
+GEMINI_API_KEY=...   # https://aistudio.google.com/
 ```
 
 Backfill:
@@ -103,20 +103,25 @@ nanograph embed --db app.nano --only-null
 
 ### Current Gemini limits
 
-- Supported media types: `image/png`, `image/jpeg`
-- Direct embedding sources: `file://`, `http://`, `https://`
-- Max inline image payload: 20 MB
-- Max batch size: 6 images per request
+NanoGraph enforces Gemini-side limits locally:
 
-Implications:
-- `@file:` and `@base64:` work well — NanoGraph imports them into local `file://` assets
-- Stored `file://...` and `https://...` media nodes work directly
-- Plain `s3://...` URIs can be stored but are not directly embeddable today
+| Media | Constraints |
+|-------|-------------|
+| Images | PNG or JPEG only; batched up to 6 per request |
+| Audio | any `audio/*` type |
+| Video | MP4 or MOV only, up to 120 seconds |
+| PDF | up to 6 pages |
+| Text | conservative local estimate capped at 8192 input tokens |
 
-Workarounds for S3-backed media:
-- Load from a local file with `@file:...`
-- Use a presigned `https://...` URL
-- Import the asset into the media root first, then embed from the resulting `file://...` URI
+If validation fails, `load` or `embed` fails before the provider call is sent.
+
+### URI handling for media embeddings
+
+- `@file:` and `@base64:` import bytes into the media root, then embed from local `file://` assets
+- Local `file://` media files are read and sent inline
+- `http://` and `https://` media URIs are fetched, validated, and embedded inline
+- Non-HTTP remote image and audio URIs can be passed through as provider file URIs
+- Non-HTTP remote PDF and video URIs are rejected (NanoGraph cannot validate page count or duration without reading bytes)
 
 ## Loading media
 
@@ -186,7 +191,7 @@ The intended multimodal workflow:
 
 ## Migrating from OpenAI to Gemini multimodal embeddings
 
-OpenAI embeddings in NanoGraph are text-only. Gemini supports text and images with a single model. If you started with OpenAI and want unified text + image embeddings:
+OpenAI embeddings in NanoGraph are text-only. Gemini supports text and media (images, audio, video, PDFs) with a single model. If you started with OpenAI and want unified text + media embeddings:
 
 ### 1. Update config
 
@@ -199,7 +204,7 @@ model = "gemini-embedding-2-preview"
 Swap the key in `.env.nano`:
 
 ```bash
-GEMINI_API_KEY=...
+GEMINI_API_KEY=...   # https://aistudio.google.com/
 ```
 
 ### 2. Resize vector dimensions if needed
@@ -240,9 +245,9 @@ After migration, `@embed(source_prop)` does the right thing for both content typ
 | Source property | Behavior |
 |----------------|----------|
 | Plain `String` | Text embedding via Gemini |
-| `String @media_uri(mime)` pointing to an image | Image embedding via Gemini |
+| `String @media_uri(mime)` pointing to media | Multimodal embedding via Gemini (images, audio, video, PDFs) |
 
-Text and image nodes share the same embedding space, so `nearest(...)` queries rank them together.
+Text and media nodes share the same embedding space, so `nearest(...)` queries rank them together.
 
 ## Operational notes
 

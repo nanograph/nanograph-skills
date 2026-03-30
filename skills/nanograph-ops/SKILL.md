@@ -162,12 +162,14 @@ Put the API key in `.env.nano`:
 ```bash
 OPENAI_API_KEY=sk-...
 # or
-GEMINI_API_KEY=...
+GEMINI_API_KEY=...   # get one at https://aistudio.google.com/
 ```
 
 Defaults: `text-embedding-3-small` (OpenAI, 1536 dims) and `gemini-embedding-2-preview` (Gemini, 3072 dims). Both support dimensionality reduction — nanograph passes the schema's `Vector(dim)` to the API automatically.
 
-If no provider is set, nanograph auto-detects: Gemini when only `GEMINI_API_KEY` is present, OpenAI otherwise.
+Auto-detection order: `NANOGRAPH_EMBED_PROVIDER` env if set → model name starting with `gemini-` → `GEMINI_API_KEY` present without `OPENAI_API_KEY` → default to OpenAI.
+
+OpenAI is text-only — if `@embed(...)` points at a `@media_uri(...)` field and OpenAI is configured, embedding will fail. Use Gemini for media.
 
 After switching providers, re-embed everything (not `--only-null`) because old vectors came from a different model:
 
@@ -248,7 +250,7 @@ node PhotoAsset {
 edge HasPhoto: Product -> PhotoAsset
 ```
 
-`@media_uri(mime)` marks the field as an external media URI and names the sibling mime property. `@embed(uri)` on a `@media_uri` field triggers multimodal (image) embedding, not text embedding.
+`@media_uri(mime)` marks the field as an external media URI and names the sibling mime property. `@embed(uri)` on a `@media_uri` field triggers multimodal embedding (images, audio, video, PDFs), not text embedding.
 
 ### Loading media
 
@@ -267,14 +269,23 @@ Supported input formats in JSONL:
 
 ### Multimodal provider
 
-Gemini is the practical multimodal provider today. OpenAI embeddings are text-only in nanograph.
+Gemini is the practical multimodal provider today. OpenAI embeddings are text-only in nanograph. Gemini supports images, audio, video, and PDF documents.
 
 ```toml
 [embedding]
 provider = "gemini"
 ```
 
-Current limits: `image/png` and `image/jpeg` only, max 20 MB inline, 6 images per batch. `s3://` URIs are not directly embeddable — use `@file:` import, presigned HTTPS URLs, or import first.
+Gemini media limits enforced locally by nanograph:
+
+| Media | Constraints |
+|-------|-------------|
+| Images | PNG or JPEG, batched up to 6 per request |
+| Audio | any `audio/*` type |
+| Video | MP4 or MOV, up to 120 seconds |
+| PDF | up to 6 pages |
+
+`http://` and `https://` URIs are fetched and embedded inline. Local `file://` assets are read and sent inline. Non-HTTP remote PDF and video URIs are rejected (nanograph cannot validate page count or duration without reading bytes).
 
 For detailed patterns and provider migration, see `references/blobs.md`.
 
