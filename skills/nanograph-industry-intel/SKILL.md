@@ -1,240 +1,160 @@
 ---
 name: nanograph-industry-intel
-description: 'Bootstrap a new nanograph-based SPIKE industry intelligence graph from scratch. Use this skill whenever a user wants to set up a new SPIKE graph — either with the existing AI industry demo data or for a new domain (biotech, fintech, crypto, geopolitics, macroeconomics, SaaS, climate tech, etc.). The flow presents a demo-vs-custom decision, then for custom setups asks about domain scope, actors, cadence, and sources, adapts schema and enums for the target domain, runs initial web research to generate real seed content, and executes init + load. Apply aggressively when the user says any of: set up nanograph SPIKE, bootstrap a new intel graph, create a new SPIKE starter, I want to track X industry, initialize intel for Y, new graph for Z domain, start a new context graph, or similar phrasing. This skill takes a user from zero to a populated, queryable graph.'
+description: 'Stand up a SPIKE industry intelligence graph on nanograph. Use this skill whenever the user wants to set up a SPIKE-style knowledge graph for one of six supported domains: AI, Biotech, Fintech, Space, Crypto, or Geopolitics. The skill focuses on ontology and schema: it picks a domain, uses a small sample of source types the user already reads to tune enums, adapts the schema, and initializes the database. Data loading, research, and ingestion are explicitly out of scope — use the nanograph-ops skill for those. Apply when the user says any of: set up SPIKE, bootstrap an intel graph, create a knowledge graph for X industry, initialize intel for Y, start a new context graph, set up a graph for AI / biotech / fintech / space / crypto / geopolitics.'
 license: MIT
 metadata:
-  version: "0.1.0"
+  version: "0.2.0"
   upstream: Ported from omnigraph-starters/skills/omnigraph-intel-bootstrap
 ---
 
-# nanograph industry intel — SPIKE starter bootstrap
+# nanograph industry intel — SPIKE schema bootstrap
 
-Takes a user from zero to a populated, queryable SPIKE graph on nanograph — either with the existing AI industry demo or a fresh custom domain (biotech, fintech, crypto, geopolitics, etc.). nanograph is embedded and local-first, so bootstrap is just `init` + `load` — no Docker, RustFS, S3, or HTTP server.
+Stand up a SPIKE knowledge-graph schema on nanograph — pick a supported domain, adapt the enum set, initialize an empty database. This skill is **ontology-focused**: data ingestion, research, and seed generation are handled by the `nanograph-ops` skill, not here.
 
-- **Demo path** — copy the `spike-intel` template, `init`, `load`. Ready to query in under a minute.
-- **Custom path** — elicit domain + sources, adapt schema enums, research real seed content on the web, then `init` + `load`. ~30–60 minutes.
-- Five reference files cover elicitation, schema adaptation, ready-made domain enum sets, and the research → seed workflow.
-- After bootstrap, day-to-day ops live in the `nanograph-ops` skill.
+- **Demo path** — use the AI template as-is (schema + real 2026 seed data). Ready to query in under a minute.
+- **Custom path** — adapt the schema for one of five other domains: Biotech, Fintech, Space, Crypto, Geopolitics.
+- Ask the user for 2–3 example source types they already read — just enough to shape `SourceEntity.type` and `artifactType` enums. Not a full source list, not an ingestion plan.
+- Two reference files: [`references/domain-examples.md`](references/domain-examples.md) for ready-made enums per domain; [`references/schema-adaptation.md`](references/schema-adaptation.md) for the keep-vs-change rules.
 
 ## Prerequisites
 
-Only one thing to install:
-
 ```bash
 brew install nanograph          # or see https://nanograph.io
-command -v nanograph && nanograph version
+nanograph version               # needs 1.2.0+
 ```
 
-Verify the version is 1.2.0 or later (earlier versions lack `NamespaceLineage` storage).
+Semantic search needs an API key in `.env.nano` (`OPENAI_API_KEY` or `GEMINI_API_KEY` — Gemini also covers multimodal).
 
-An embedding API key is needed for `@embed(...)` fields and semantic search. One of:
-
-```bash
-OPENAI_API_KEY=sk-...         # text-only
-GEMINI_API_KEY=...            # text + multimodal (images, audio, video, PDF)
-```
-
-These go in `.env.nano` (see Step 2 of either path). The file is auto-loaded from the working directory.
-
-## Step 1: Ask the user which path
+## Step 1: Ask which path
 
 > Do you want to:
-> - **Demo** — set up the AI industry intel demo (5 patterns, 15 signals, ~110 nodes, ready to query in ~30 seconds)
-> - **Custom** — set up a graph for a new domain (I'll ask about your domain + sources, adapt the schema, research real seed data, and wire it up)
+> - **Demo** — use the AI industry template as-is (109 nodes, 154 real signals from early 2026)
+> - **Custom** — adapt the schema for a new domain (Biotech, Fintech, Space, Crypto, or Geopolitics)
 
-Branch based on the answer.
-
-## Path A: Demo Setup
-
-The `spike-intel/` template lives in the `nanograph-skills` repo at `templates/spike-intel/`. Copy it into the user's project directory (or wherever they want the graph to live):
+## Path A — Demo
 
 ```bash
-# <repo> is the path to the nanograph-skills checkout
-# <destination> is where the graph should live (the user's project, ~/graphs/, etc.)
 cp -r <repo>/templates/spike-intel <destination>/spike-intel
 cd <destination>/spike-intel
-```
-
-If this skill was installed via `npx skills add`, the template ships with the bundle and is available at `<install-path>/templates/spike-intel/`.
-
-Then set up the API key and initialize:
-
-```bash
-cp .env.nano.example .env.nano
-# Edit .env.nano — put OPENAI_API_KEY or GEMINI_API_KEY
-
+cp .env.nano.example .env.nano     # add an API key
 nanograph init
 nanograph load --data seed.jsonl --mode overwrite
 ```
 
-Expected load output:
+`<repo>` is the `nanograph-skills` checkout (or the install path if the skill came from `npx skills add`).
 
-```
-loaded with overwrite: 109 nodes across 10 node types, 154 edges across 23 edge types
-```
-
-Verify with an alias:
+Verify:
 
 ```bash
-nanograph run patterns disruption
+nanograph run patterns disruption           # returns SaaSpocalypse, Sovereign AI
 nanograph run pattern-signals pat-sovereign-ai
 ```
 
-The first returns 2 patterns (SaaSpocalypse, Sovereign AI); the second returns 3 signals.
+Done. For day-to-day ops, point the user at the `nanograph-ops` skill.
 
-**After setup**, point the user at the `nanograph-ops` skill for day-to-day operations.
+## Path B — Custom Domain
 
-## Path B: Custom Domain Setup
+Supported domains: **Biotech, Fintech, Space, Crypto, Geopolitics**. If the user asks for something else, suggest the closest match and note the mapping.
 
-Six phases, in order. Each phase's output feeds the next — don't skip ahead.
+### Step 1: Confirm domain + slug
 
-### Phase 1 — Domain identification
+Pick the domain and a project slug:
 
-Ask the user which domain they want to track. Present these as options:
+| Domain | Slug |
+|--------|------|
+| Biotech | `bio-intel` |
+| Fintech | `fin-intel` |
+| Space | `space-intel` |
+| Crypto | `crypto-intel` |
+| Geopolitics | `geo-intel` |
 
-- Biotech / therapeutics
-- Fintech / financial services
-- Crypto / web3
-- Geopolitics / policy
-- Macroeconomics
-- SaaS / enterprise software
-- Climate tech / energy transition
-- Other (user specifies)
+### Step 2: Ask for source-type examples (to shape enums)
 
-Then narrow:
-- Scope: "all of X" or "only Y within X"?
-- Global or regional?
+Ask the user for **2–3 example source types** they already read. The goal is to choose the right values for `SourceEntity.type` and `InformationArtifact.artifactType` — not to build a source list or plan ingestion.
 
-Capture a **project slug** for the new starter: `bio-intel`, `crypto-intel`, `geo-intel`, etc. This becomes the folder name and the database name (`<slug>.nano`).
+Good prompt:
 
-### Phase 2 — Key questions
+> To tune the schema, give me a few example source types you'd pull from. For instance:
+> - *Biotech*: FDA filings? Endpoints News? clinicaltrials.gov?
+> - *Fintech*: SEC filings? Matt Levine? earnings calls?
+> - *Space*: SpaceNews? FCC filings? NASA press releases?
+> - *Crypto*: Bankless? DefiLlama on-chain data? governance forum posts?
+> - *Geopolitics*: Foreign Affairs? CFR? State Department briefings?
 
-Ask each in turn. See [`references/custom-domain.md`](references/custom-domain.md) for full phrasing and multi-select options.
+Each answer tells you which enum values to keep or add. Examples:
 
-- **Actors to track** (multi-select): companies, labs, regulators, individuals, protocols, investors
-- **Time horizon**: recent only (3mo), medium (12mo), or full historical
-- **Update cadence**: daily, weekly, monthly, ad-hoc
-- **Primary consumer**: human analysts, internal dashboard, AI agents, mixed
+- *"FDA filings and trial-registration"* → `artifactType` must include `fda-filing` and `trial-registration`; `SourceEntity.type` needs `regulatory-filing`
+- *"FCC filings and launch reports"* → `artifactType` includes `filing` and `launch-report`; `Company.type` needs `agency`
+- *"Governance forum posts and on-chain data"* → `SourceEntity.type` adds `governance-forum` and `on-chain-data`; `artifactType` adds `proposal` and `governance-vote`
 
-### Phase 3 — Sources (most important)
+Do not elicit a full source list or plan the ingestion pipeline — that's out of scope for this skill.
 
-Sources are the lifeblood of a SPIKE graph. The quality of the output is bounded by the quality of the sources. Spend time here.
-
-Ask in order (see [`references/custom-domain.md`](references/custom-domain.md) for exact wording):
-
-1. **Primary reading list** — newsletters, blogs, publications the user already reads (free-form, 5–15 entries)
-2. **Priority analysts / experts** — 3–10 people whose takes should be first-class entities
-3. **Regulatory / authoritative sources** — governmental, self-regulatory (FDA, SEC, IMF, etc.)
-4. **Academic / primary sources** — journals, preprint servers, research aggregators
-5. **Social / community** — X accounts, podcasts, forums
-
-### Phase 4 — Confirm summary
-
-Before making changes, echo what you captured back to the user:
-
-- Domain + scope + project slug
-- Actor types to track
-- Horizon + cadence + consumer
-- Source list (grouped by category)
-
-Write this to `<slug>/setup-notes.md` in the new starter folder. Confirming now is cheap; rework later isn't.
-
-### Phase 5 — Adapt the schema
-
-Copy the `spike-intel` template into `<slug>/`:
+### Step 3: Copy and adapt the template
 
 ```bash
-# <repo> is the path to the nanograph-skills checkout (or install-path of this skill bundle)
 cp -r <repo>/templates/spike-intel <slug>
-rm <slug>/seed.jsonl <slug>/seed.md   # regenerated in Phase 6
+rm <slug>/seed.jsonl <slug>/seed.md      # user brings their own data via nanograph-ops
+cd <slug>
 ```
 
-Update in `<slug>/schema.pg`:
+Pull the enum block for the target domain from [`references/domain-examples.md`](references/domain-examples.md) and replace six enum families in `schema.pg`:
 
-- `Element.kind` enum — replace with domain-appropriate kinds
-- `Signal.domain` / `Element.domain` enum — replace with domain slices (must be identical on both)
-- `Company.type` enum — match the ecosystem
-- `SourceEntity.type` enum — match how sources publish
-- `ArtifactType` enum — include domain-relevant formats
-- Kind-specific Element properties (biotech wants `phase`, `moa`; crypto wants `chain`, `token_symbol`; etc.)
+1. `Element.kind`
+2. `Signal.domain` + `Element.domain` (must match exactly)
+3. `Company.type`
+4. `SourceEntity.type` — tweak with the user's source examples
+5. `InformationArtifact.artifactType` — tweak with the user's source examples
+6. Kind-specific `Element` properties (swap AI-specific like `repository` for domain-specific like `phase` / `orbit` / `chain`)
 
-Update in `<slug>/nanograph.toml`:
+Keep `Pattern.kind` (`challenge, disruption, dynamic`) — domain-agnostic.
 
-- `[db].default_path` → `"<slug>.nano"`
-- `[project].name` → domain-appropriate name
-- `[project].description` / `[project].instruction` — domain-specific
+Update `nanograph.toml`:
 
-**Pattern.kind** (`challenge`, `disruption`, `dynamic`) is usually domain-agnostic. Don't change it unless the user has strong reasons.
+```toml
+[project]
+name = "<Domain> Intel — SPIKE"
 
-See [`references/schema-adaptation.md`](references/schema-adaptation.md) for the full keep-vs-change rules. See [`references/domain-examples.md`](references/domain-examples.md) for worked examples across biotech, crypto, fintech, geopolitics, and macro.
+[db]
+default_path = "<slug>.nano"
+```
 
-After editing:
+See [`references/schema-adaptation.md`](references/schema-adaptation.md) for the full keep-vs-change rules and nanograph syntax gotchas (`@embed`, no edge cardinality, `@key` on every node, etc.).
+
+### Step 4: Lint + init
 
 ```bash
-cd <slug>
 nanograph lint --schema schema.pg --query queries/signals.gq
-```
-
-Fix any lint errors before moving on.
-
-### Phase 6 — Research, seed, init, load
-
-Use web research to build real seed content. **Do not fabricate signals or dates.** See [`references/research.md`](references/research.md) for the workflow. High-level:
-
-1. For each source from Phase 3, pull recent items (WebFetch / WebSearch)
-2. Extract candidate signals (dated, URL-backed, specific)
-3. Cluster into 3–5 patterns (recurring themes)
-4. For each pattern, identify the Elements, Companies, Experts mentioned
-5. Write `<slug>/seed.md` (tabular, human-readable) — **present this to the user for review before generating JSONL**
-6. Generate `<slug>/seed.jsonl` from the confirmed seed.md
-7. Initialize and load:
-
-```bash
-cd <slug>
-cp .env.nano.example .env.nano
-# Add API key to .env.nano
-
+cp .env.nano.example .env.nano           # add an API key
 nanograph init
-nanograph load --data seed.jsonl --mode overwrite
 ```
 
-8. Verify:
+The database is now empty with the adapted schema. The user's next step — **loading data** — happens via the `nanograph-ops` skill (mutation queries for individual records, `nanograph load --mode merge` for batches). This skill stops here.
 
-```bash
-nanograph describe --json
-nanograph run patterns <pattern-kind>   # or another alias
-```
-
-### Phase 7 — Hand-off
+### Step 5: Hand off
 
 Tell the user:
 
-- What got created (starter folder, schema, seed counts, `.nano` path)
-- How to query (via aliases defined in `nanograph.toml`)
-- To use the `nanograph-ops` skill for day-to-day ops (adding signals, schema evolution, CDC, embeddings)
+- Schema adapted for `<domain>` at `<slug>/schema.pg`
+- Empty database at `<slug>/<slug>.nano`
+- Aliases ready in `nanograph.toml` (they'll work once data is loaded)
+- Next: use the `nanograph-ops` skill to add data via mutations or `load`
 
-## nanograph Schema Syntax Notes
-
-A few gotchas when editing `schema.pg` — they differ from Omnigraph:
+## nanograph Syntax Quick Reference
 
 | Concern | nanograph |
 |---|---|
 | `@embed(prop)` | Unquoted property name is canonical; `@embed("prop")` also parses |
-| `@card(...)` edge cardinality | **Not enforced.** The parser tolerates `@name("string_lit")` on edges but attaches no semantics. Treat cardinality as application-level (enforce in the code/queries that emit edges, not in the schema). |
-| `@unique(src)` in edge body | Unsupported. No schema-level way to enforce per-source uniqueness today. |
-| `@key` on every node | Required. Every node type needs one (the `Chunk` node has a synthetic `slug @key`). |
-| Property separators | Newlines only — commas between properties are rejected. |
-| Comments | `//` (not `#`) |
+| `@card(...)` | Tolerated but **not enforced** — don't rely on it |
+| `@unique(src)` in edge body | Unsupported |
+| `@key` on every node | Required — `Chunk` gets a synthetic `slug @key` |
+| Property separators | Newlines only; commas rejected |
+| Comments | `//`, not `#` |
 
-## Deep Dives
-
-Load these only when you reach the relevant phase.
+## References
 
 | Reference | When to load |
 |-----------|--------------|
-| [`references/custom-domain.md`](references/custom-domain.md) | Phases 1–4: elicitation question bank and source patterns |
-| [`references/schema-adaptation.md`](references/schema-adaptation.md) | Phase 5: what stays vs changes in the schema |
-| [`references/domain-examples.md`](references/domain-examples.md) | Phase 5: ready-made enum sets for biotech, crypto, fintech, geopolitics, macro |
-| [`references/research.md`](references/research.md) | Phase 6: web research → seed.md → seed.jsonl workflow |
+| [`references/domain-examples.md`](references/domain-examples.md) | Picking the enum block for a target domain |
+| [`references/schema-adaptation.md`](references/schema-adaptation.md) | Keep-vs-change rules, nanograph syntax gotchas, validation checklist |
 
-For operational rules (mutations, CDC, embeddings, storage), defer to the `nanograph-ops` skill instead of duplicating them here.
+For everything beyond schema setup — mutations, data loading, CDC, embeddings, maintenance — use the `nanograph-ops` skill.
