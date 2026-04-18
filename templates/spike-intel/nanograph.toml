@@ -1,0 +1,376 @@
+# nanograph project config for SPIKE Intel.
+# Keep secrets in .env.nano, not in this file.
+
+[project]
+name = "SPIKE Intel — AI Industry Knowledge Graph"
+description = "AI/ML industry intelligence modeled on the SPIKE framework (Signal, Pattern, Insight, KnowHow, Element)."
+instruction = "Run nanograph commands from this directory. Prefer `nanograph run <alias>` over raw --query / --name / --param invocations."
+
+[db]
+default_path = "spike-intel.nano"
+
+[schema]
+default_path = "schema.pg"
+
+[query]
+roots = ["queries"]
+
+# Vector(3072) requires a 3072-dim embedding model.
+# Options:
+#   - openai + text-embedding-3-large (native 3072, text-only)
+#   - gemini + gemini-embedding-2-preview (native 3072, text + multimodal)
+# Put the matching API key in .env.nano.
+[embedding]
+provider = "openai"
+model = "text-embedding-3-large"
+batch_size = 64
+chunk_size = 0
+chunk_overlap_chars = 128
+
+[cli]
+table_max_column_width = 80
+table_cell_layout = "truncate"
+
+
+# ──────────────────────────────────────────────
+# Reads — Signals
+# ──────────────────────────────────────────────
+
+[query_aliases.signal]
+query = "signals.gq"
+name = "get_signal"
+args = ["slug"]
+format = "kv"
+
+[query_aliases.signals]
+query = "signals.gq"
+name = "recent_signals"
+format = "json"
+
+[query_aliases.signal-patterns]
+query = "signals.gq"
+name = "signal_patterns"
+args = ["slug"]
+format = "json"
+
+[query_aliases.signal-elements]
+query = "signals.gq"
+name = "signal_elements"
+args = ["slug"]
+format = "json"
+
+
+# ──────────────────────────────────────────────
+# Reads — Patterns
+# ──────────────────────────────────────────────
+
+[query_aliases.pattern]
+query = "patterns.gq"
+name = "get_pattern"
+args = ["slug"]
+format = "kv"
+
+[query_aliases.patterns]
+query = "patterns.gq"
+name = "patterns_by_kind"
+args = ["kind"]
+format = "json"
+
+[query_aliases.pattern-signals]
+query = "patterns.gq"
+name = "pattern_signals"
+args = ["slug"]
+format = "json"
+
+[query_aliases.pattern-elements]
+query = "patterns.gq"
+name = "pattern_elements"
+args = ["slug"]
+format = "json"
+
+
+# ──────────────────────────────────────────────
+# Reads — Elements
+# ──────────────────────────────────────────────
+
+[query_aliases.element]
+query = "elements.gq"
+name = "get_element"
+args = ["slug"]
+format = "kv"
+
+[query_aliases.elements]
+query = "elements.gq"
+name = "elements_by_kind"
+args = ["kind"]
+format = "json"
+
+[query_aliases.element-signals]
+query = "elements.gq"
+name = "element_signals"
+args = ["slug"]
+format = "json"
+
+[query_aliases.element-patterns]
+query = "elements.gq"
+name = "element_patterns"
+args = ["slug"]
+format = "json"
+
+
+# ──────────────────────────────────────────────
+# Reads — Insights
+# ──────────────────────────────────────────────
+
+[query_aliases.insight]
+query = "insights.gq"
+name = "get_insight"
+args = ["slug"]
+format = "kv"
+
+[query_aliases.insight-patterns]
+query = "insights.gq"
+name = "insight_patterns"
+args = ["slug"]
+format = "json"
+
+[query_aliases.insight-elements]
+query = "insights.gq"
+name = "insight_elements"
+args = ["slug"]
+format = "json"
+
+
+# ──────────────────────────────────────────────
+# Reads — KnowHow
+# ──────────────────────────────────────────────
+
+[query_aliases.knowhow]
+query = "knowhow.gq"
+name = "get_knowhow"
+args = ["slug"]
+format = "kv"
+
+[query_aliases.knowhows]
+query = "knowhow.gq"
+name = "recent_knowhow"
+format = "json"
+
+[query_aliases.knowhow-elements]
+query = "knowhow.gq"
+name = "knowhow_elements"
+args = ["slug"]
+format = "json"
+
+
+# ──────────────────────────────────────────────
+# Mutations — SPIKE nodes
+# ──────────────────────────────────────────────
+
+[query_aliases.add-signal]
+query = "mutations.gq"
+name = "add_signal"
+args = ["slug", "name", "brief", "stagingTimestamp", "createdAt", "updatedAt"]
+format = "jsonl"
+
+[query_aliases.add-element]
+query = "mutations.gq"
+name = "add_element"
+args = ["slug", "name", "kind", "createdAt", "updatedAt"]
+format = "jsonl"
+
+[query_aliases.add-pattern]
+query = "mutations.gq"
+name = "add_pattern"
+args = ["slug", "name", "kind", "createdAt", "updatedAt"]
+format = "jsonl"
+
+[query_aliases.add-insight]
+query = "mutations.gq"
+name = "add_insight"
+args = ["slug", "name", "createdAt", "updatedAt"]
+format = "jsonl"
+
+[query_aliases.add-knowhow]
+query = "mutations.gq"
+name = "add_knowhow"
+args = ["slug", "name", "stagingTimestamp", "createdAt", "updatedAt"]
+format = "jsonl"
+
+
+# ──────────────────────────────────────────────
+# Mutations — Supportive nodes
+# ──────────────────────────────────────────────
+
+[query_aliases.add-company]
+query = "mutations.gq"
+name = "add_company"
+args = ["slug", "name"]
+format = "jsonl"
+
+[query_aliases.add-source]
+query = "mutations.gq"
+name = "add_source"
+args = ["slug", "name"]
+format = "jsonl"
+
+[query_aliases.add-expert]
+query = "mutations.gq"
+name = "add_expert"
+args = ["slug", "name"]
+format = "jsonl"
+
+[query_aliases.add-artifact]
+query = "mutations.gq"
+name = "add_artifact"
+args = ["slug", "name", "artifactType", "stagingTimestamp", "createdAt", "updatedAt"]
+format = "jsonl"
+
+
+# ──────────────────────────────────────────────
+# Mutations — Core analytical edges
+# ──────────────────────────────────────────────
+
+[query_aliases.link-forms-pattern]
+query = "mutations.gq"
+name = "link_signal_forms_pattern"
+args = ["signal", "pattern"]
+format = "jsonl"
+
+[query_aliases.link-contradicts-pattern]
+query = "mutations.gq"
+name = "link_signal_contradicts_pattern"
+args = ["signal", "pattern"]
+format = "jsonl"
+
+[query_aliases.link-highlights-pattern]
+query = "mutations.gq"
+name = "link_insight_highlights_pattern"
+args = ["insight", "pattern"]
+format = "jsonl"
+
+[query_aliases.link-relies-on-element]
+query = "mutations.gq"
+name = "link_insight_relies_on_element"
+args = ["insight", "element"]
+format = "jsonl"
+
+
+# ──────────────────────────────────────────────
+# Mutations — Signal → Element
+# ──────────────────────────────────────────────
+
+[query_aliases.link-on-element]
+query = "mutations.gq"
+name = "link_signal_on_element"
+args = ["signal", "element"]
+format = "jsonl"
+
+
+# ──────────────────────────────────────────────
+# Mutations — Element edges
+# ──────────────────────────────────────────────
+
+[query_aliases.link-enables-element]
+query = "mutations.gq"
+name = "link_element_enables"
+args = ["from", "to"]
+format = "jsonl"
+
+[query_aliases.link-uses-element]
+query = "mutations.gq"
+name = "link_element_uses"
+args = ["from", "to"]
+format = "jsonl"
+
+[query_aliases.link-exemplifies-pattern]
+query = "mutations.gq"
+name = "link_element_exemplifies_pattern"
+args = ["element", "pattern"]
+format = "jsonl"
+
+[query_aliases.link-enables-pattern]
+query = "mutations.gq"
+name = "link_element_enables_pattern"
+args = ["element", "pattern"]
+format = "jsonl"
+
+
+# ──────────────────────────────────────────────
+# Mutations — Development & affiliation
+# ──────────────────────────────────────────────
+
+[query_aliases.link-developed-by]
+query = "mutations.gq"
+name = "link_element_developed_by"
+args = ["element", "company"]
+format = "jsonl"
+
+[query_aliases.link-affiliated-with]
+query = "mutations.gq"
+name = "link_expert_affiliated_with"
+args = ["expert", "company"]
+format = "jsonl"
+
+
+# ──────────────────────────────────────────────
+# Mutations — Classification
+# ──────────────────────────────────────────────
+
+[query_aliases.link-relevant-company]
+query = "mutations.gq"
+name = "link_signal_relevant_company"
+args = ["signal", "company"]
+format = "jsonl"
+
+
+# ──────────────────────────────────────────────
+# Mutations — Provenance (artifacts + sources)
+# ──────────────────────────────────────────────
+
+[query_aliases.link-published-by]
+query = "mutations.gq"
+name = "link_artifact_published_by"
+args = ["artifact", "source"]
+format = "jsonl"
+
+[query_aliases.link-contributed-by]
+query = "mutations.gq"
+name = "link_artifact_contributed_by"
+args = ["artifact", "expert"]
+format = "jsonl"
+
+[query_aliases.link-spotted-in]
+query = "mutations.gq"
+name = "link_signal_spotted_in"
+args = ["signal", "artifact"]
+format = "jsonl"
+
+[query_aliases.link-identified-in]
+query = "mutations.gq"
+name = "link_element_identified_in"
+args = ["element", "artifact"]
+format = "jsonl"
+
+[query_aliases.link-knowhow-sourced-from]
+query = "mutations.gq"
+name = "link_knowhow_sourced_from"
+args = ["knowhow", "artifact"]
+format = "jsonl"
+
+[query_aliases.link-signal-sourced-from]
+query = "mutations.gq"
+name = "link_signal_sourced_from"
+args = ["signal", "source"]
+format = "jsonl"
+
+
+# ──────────────────────────────────────────────
+# Mutations — KnowHow references
+# ──────────────────────────────────────────────
+
+[query_aliases.link-references-element]
+query = "mutations.gq"
+name = "link_knowhow_references"
+args = ["knowhow", "element"]
+format = "jsonl"

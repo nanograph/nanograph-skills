@@ -1,10 +1,32 @@
-# Blobs and Multimodal Embeddings
+# Blobs and multimodal embeddings
 
-NanoGraph does not store raw blob bytes inside `.nano/`. Media is modeled as normal nodes with external URIs. The database stores the media URI, mime type, optional derived metadata, and optional embeddings. This keeps `.nano/` small and Git-friendly while enabling text-to-image retrieval and graph traversal from media nodes.
+nanograph models media as normal nodes with URI properties. For imported managed assets, new graphs store the bytes in hidden Lance-backed storage inside `__blob_store`. For remote references, nanograph stores the logical URI directly.
+
+This gives you:
+
+- normal graph modeling with edges to media nodes
+- managed storage for imported `@file:` and `@base64:` assets
+- multimodal embeddings through Gemini
+- stable logical URIs for exported and queried rows
+
+## Contents
+
+- [Storage model](#storage-model)
+- [`@media_uri` annotation](#media_uri-annotation)
+- [Media input formats](#media-input-formats)
+- [Managed storage vs external URIs](#managed-storage-vs-external-uris)
+- [Multimodal embeddings](#multimodal-embeddings)
+- [Provider setup](#provider-setup)
+- [Current Gemini limits](#current-gemini-limits)
+- [URI handling for media embeddings](#uri-handling-for-media-embeddings)
+- [Loading media](#loading-media)
+- [Querying media](#querying-media)
+- [Migrating from OpenAI to Gemini multimodal embeddings](#migrating-from-openai-to-gemini-multimodal-embeddings)
+- [Operational notes](#operational-notes)
 
 ## Storage model
 
-Use media nodes, not blob properties:
+Use media nodes, not raw blob properties on domain nodes:
 
 ```graphql
 node Product {
@@ -24,66 +46,58 @@ node PhotoAsset {
 edge HasPhoto: Product -> PhotoAsset
 ```
 
-- `uri` points to the external media asset
+- `uri` is the logical media reference
 - `mime` stores the media type
 - `embedding` stores the multimodal vector
-- edges connect domain entities to media assets
+- edges connect media to the rest of the graph
 
-NanoGraph never writes media bytes into `nodes/*` or `edges/*` Lance datasets.
+nanograph does not write media payload bytes into `nodes/*` or `edges/*` tables. Managed imported bytes live in `__blob_store`.
 
 ## `@media_uri` annotation
 
-`@media_uri(mime_prop)` marks a `String` property as an external media URI and names the sibling mime field.
+`@media_uri(mime_prop)` marks a `String` property as a media URI and names the sibling MIME property.
 
 Rules:
-- Valid only on `String` or `String?`
-- The argument must name a sibling `String` or `String?` property
-- Plain strings are rejected during load — values must use one of the media input formats
-- List properties cannot have `@media_uri`
 
-### Media input formats
+- valid only on `String` or `String?`
+- the argument must name a sibling `String` or `String?` property
+- plain strings are rejected during load; use a supported media input format
+- list properties cannot use `@media_uri`
+
+## Media input formats
 
 | Format | Behavior |
 |--------|----------|
-| `@file:path/to/image.jpg` | Reads local file, imports into media root, stores `file://` URI |
-| `@base64:...` | Decodes bytes, imports into media root, stores `file://` URI |
-| `@uri:file:///absolute/path/image.jpg` | Stores URI directly, no copy |
-| `@uri:https://example.com/image.jpg` | Stores URI directly, no copy |
-| `@uri:s3://bucket/path/image.jpg` | Stores URI directly, no copy |
+| `@file:path/to/image.jpg` | reads local bytes, imports them into managed blob storage, stores `lanceblob://sha256/...` |
+| `@base64:...` | decodes bytes, imports them into managed blob storage, stores `lanceblob://sha256/...` |
+| `@uri:file:///absolute/path/image.jpg` | stores the URI directly, no copy |
+| `@uri:https://example.com/image.jpg` | stores the URI directly, no copy |
+| `@uri:s3://bucket/path/image.jpg` | stores the URI directly, no copy |
 
-When NanoGraph imports bytes from `@file:` or `@base64:`, it writes them outside the database under the media root and stores the final `file://...` URI in the node.
+Relative `@file:` paths are resolved relative to the source JSONL file.
 
-### Media root
+## Managed storage vs external URIs
 
-Default location: `<db-parent>/media/`
+For new `NamespaceLineage` graphs:
 
-Override with:
+- imported managed assets from `@file:` and `@base64:` become `lanceblob://sha256/...`
+- remote references such as `https://`, `s3://`, and `abfss://` remain as logical URIs
+- local `file://` URIs remain external references unless you explicitly import them
 
-```bash
-NANOGRAPH_MEDIA_ROOT=/absolute/path/to/media
-```
-
-Imported files are content-addressed and grouped by node type:
-
-```
-media/
-  photoasset/
-    4c8f...e2a1.jpg
-```
-
-Relative `@file:` paths are resolved relative to the source JSONL file, so they only work when loading from a file on disk.
+`NANOGRAPH_MEDIA_ROOT` is a legacy input only used during older storage migration flows. It is not the active steady-state storage model for new graphs.
 
 ## Multimodal embeddings
 
-`@embed(source_prop)` works on media URI properties. When the source has `@media_uri(...)`, NanoGraph treats `@embed(uri)` as multimodal embedding (images, audio, video, PDFs), not text embedding.
+`@embed(source_prop)` works on media URI properties. When the source has `@media_uri(...)`, `@embed(uri)` becomes multimodal embedding for images, audio, video, and PDFs instead of text embedding.
 
 When the embedding is null or missing:
+
 - `nanograph load` generates the vector automatically
 - `nanograph embed` can backfill it later
 
 ## Provider setup
 
-Gemini is the practical multimodal provider today. OpenAI embeddings remain text-only in NanoGraph.
+Gemini is the practical multimodal provider today. OpenAI embeddings remain text-only in nanograph.
 
 ```toml
 [embedding]
@@ -101,27 +115,27 @@ Backfill:
 nanograph embed --db app.nano --only-null
 ```
 
-### Current Gemini limits
+## Current Gemini limits
 
-NanoGraph enforces Gemini-side limits locally:
+nanograph enforces Gemini-side limits locally:
 
 | Media | Constraints |
 |-------|-------------|
-| Images | PNG or JPEG only; batched up to 6 per request |
+| Text | conservative local estimate capped at 8192 input tokens |
+| Images | PNG or JPEG only, batched up to 6 per request |
 | Audio | any `audio/*` type |
 | Video | MP4 or MOV only, up to 120 seconds |
 | PDF | up to 6 pages |
-| Text | conservative local estimate capped at 8192 input tokens |
 
 If validation fails, `load` or `embed` fails before the provider call is sent.
 
-### URI handling for media embeddings
+## URI handling for media embeddings
 
-- `@file:` and `@base64:` import bytes into the media root, then embed from local `file://` assets
-- Local `file://` media files are read and sent inline
+- `lanceblob://...` managed assets are read back from `__blob_store`
+- local `file://` assets are read and sent inline
 - `http://` and `https://` media URIs are fetched, validated, and embedded inline
-- Non-HTTP remote image and audio URIs can be passed through as provider file URIs
-- Non-HTTP remote PDF and video URIs are rejected (NanoGraph cannot validate page count or duration without reading bytes)
+- non-HTTP remote image and audio URIs may be passed through when the provider supports them
+- non-HTTP remote PDF and video URIs are rejected because nanograph cannot validate page count or duration without reading the bytes
 
 ## Loading media
 
@@ -139,9 +153,11 @@ nanograph load --db app.nano --data data.jsonl --mode overwrite
 ```
 
 After load:
-- `PhotoAsset.uri` is a durable external URI
-- `PhotoAsset.mime` is filled automatically if possible
-- `PhotoAsset.embedding` is generated if configured and null
+
+- imported managed assets are represented as `lanceblob://sha256/...`
+- external `@uri:` assets keep their logical URI values
+- `mime` is filled automatically when possible
+- `embedding` is generated if configured and currently null
 
 ## Querying media
 
@@ -183,15 +199,16 @@ query products_from_image_search($q: String) {
 ```
 
 The intended multimodal workflow:
-1. Store media as nodes with external URIs
-2. Embed those media nodes
-3. Issue a text query
-4. Rank media nodes with `nearest(...)`
-5. Traverse from media nodes into the rest of the graph
+
+1. Store media as nodes with URI properties.
+2. Embed those media nodes.
+3. Issue a text query.
+4. Rank media nodes with `nearest(...)`.
+5. Traverse from media nodes into the rest of the graph.
 
 ## Migrating from OpenAI to Gemini multimodal embeddings
 
-OpenAI embeddings in NanoGraph are text-only. Gemini supports text and media (images, audio, video, PDFs) with a single model. If you started with OpenAI and want unified text + media embeddings:
+OpenAI embeddings in nanograph are text-only. Gemini supports text and media in one embedding space.
 
 ### 1. Update config
 
@@ -204,17 +221,15 @@ model = "gemini-embedding-2-preview"
 Swap the key in `.env.nano`:
 
 ```bash
-GEMINI_API_KEY=...   # https://aistudio.google.com/
+GEMINI_API_KEY=...
 ```
 
 ### 2. Resize vector dimensions if needed
 
 | Model | Native dim | Typical schema dim |
-|-------|-----------|-------------------|
-| `text-embedding-3-small` (OpenAI) | 1536 | `Vector(1536)` |
-| `gemini-embedding-2-preview` (Gemini) | 3072 | `Vector(768)` or `Vector(3072)` |
-
-`Vector(768)` is a practical default for Gemini — good quality at half the storage of OpenAI 1536.
+|-------|------------|--------------------|
+| `text-embedding-3-small` | 1536 | `Vector(1536)` |
+| `gemini-embedding-2-preview` | 3072 | `Vector(768)` or `Vector(3072)` |
 
 If changing dimensions, edit the schema and migrate:
 
@@ -225,13 +240,13 @@ nanograph migrate
 
 ### 3. Re-embed everything
 
-Old vectors are not comparable to the new model's vectors:
+Old vectors are not comparable to the new model:
 
 ```bash
 nanograph embed --reindex
 ```
 
-This is the one time a full re-embed is necessary. After this, `--only-null` works normally for incremental backfills.
+This is the one time a full re-embed is necessary. After that, `--only-null` works again for incremental backfills.
 
 ### 4. Verify
 
@@ -240,18 +255,18 @@ nanograph doctor
 nanograph run <your-search-alias> "test query"
 ```
 
-After migration, `@embed(source_prop)` does the right thing for both content types:
+After migration:
 
 | Source property | Behavior |
 |----------------|----------|
-| Plain `String` | Text embedding via Gemini |
-| `String @media_uri(mime)` pointing to media | Multimodal embedding via Gemini (images, audio, video, PDFs) |
+| Plain `String` | text embedding via Gemini |
+| `String @media_uri(mime)` | multimodal embedding via Gemini |
 
-Text and media nodes share the same embedding space, so `nearest(...)` queries rank them together.
+Text and media nodes share the same embedding space, so `nearest(...)` can rank them together.
 
 ## Operational notes
 
-- NanoGraph stores references and derived vectors, not blob payloads, in `.nano/`
-- Imported media files live under the media root, not under `nodes/` or `edges/`
-- If you keep the media root inside your repo, add it to `.gitignore`
-- `nanograph export` preserves URIs by default; it does not copy external assets
+- nanograph stores managed imported blob bytes in `__blob_store`, not in node or edge tables
+- imported managed assets do not require a repo-level media directory
+- external URIs remain external references
+- `nanograph export` preserves logical URIs; it does not copy remote assets

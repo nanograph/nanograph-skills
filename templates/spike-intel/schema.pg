@@ -1,0 +1,225 @@
+// Industry Intel: SPIKE Framework — nanograph schema
+// Ported from omnigraph-starters/industry-intel (Apr 2026).
+// Flat Element + Pattern with kind enums; domain is a property, not a node.
+
+
+// ──────────────────────────────────────────────
+// SPIKE Nodes
+// ──────────────────────────────────────────────
+
+node Signal
+  @description("A dated external fact, movement, or observation.")
+  @instruction("Use Signal.slug for trace queries. brief is the retrieval field for search.")
+{
+    slug: String @key
+    name: String @index
+    brief: String @index
+    description: String?
+    domain: enum(training, inference, infra, harness, robotics, security, data-eng, context)?
+    stagingTimestamp: DateTime @index
+    createdAt: DateTime
+    updatedAt: DateTime
+}
+
+node Element
+  @description("A concrete product, framework, company, or concept that signals are about.")
+  @instruction("Element.kind disambiguates: product / technology / framework / concept / ops.")
+{
+    slug: String @key
+    name: String @index
+    kind: enum(product, technology, framework, concept, ops) @index
+    brief: String?
+    description: String?
+    category: [String]?
+    domain: enum(training, inference, infra, harness, robotics, security, data-eng, context)?
+
+    // Product / Framework shared
+    website: String?
+    release_year: I32?
+    license: String?
+
+    // Framework-specific
+    repository: String?
+    use_cases: [String]?
+    key_features: [String]?
+    target_users: String?
+
+    // Concept-specific
+    definition: String?
+    key_points: [String]?
+
+    createdAt: DateTime
+    updatedAt: DateTime
+}
+
+node Pattern
+  @description("A recurring theme formed, contradicted, or driven by signals.")
+  @instruction("Pattern.kind: challenge (problem), disruption (shift), dynamic (emerging force).")
+{
+    slug: String @key
+    name: String @index
+    kind: enum(challenge, disruption, dynamic) @index
+    brief: String?
+    description: String?
+    evolution: String?
+    createdAt: DateTime
+    updatedAt: DateTime
+}
+
+node Insight
+  @description("A synthesized interpretation explaining why a pattern matters.")
+{
+    slug: String @key
+    name: String @index
+    brief: String?
+    description: String?
+    importance: String?
+    createdAt: DateTime
+    updatedAt: DateTime
+}
+
+node KnowHow
+  @description("An actionable practice or playbook grounded in the graph.")
+{
+    slug: String @key
+    name: String @index
+    brief: String?
+    description: String?
+    guidelines: [String]?
+    context: String?
+    url: String?
+    stagingTimestamp: DateTime @index
+    createdAt: DateTime
+    updatedAt: DateTime
+}
+
+
+// ──────────────────────────────────────────────
+// Supportive Nodes
+// ──────────────────────────────────────────────
+
+node Company {
+    slug: String @key
+    name: String @index
+    brief: String?
+    description: String?
+    site: String?
+    formerly: String?
+    type: enum(bigtech, developer, investor, research, hardware, media)?
+}
+
+node SourceEntity {
+    slug: String @key
+    name: String @index
+    type: enum(blog, newsletter, video_channel, academic_repository, podcast, organization)?
+    platform: String?
+    url: String?
+}
+
+node Expert {
+    slug: String @key
+    name: String @index
+}
+
+node InformationArtifact {
+    slug: String @key
+    name: String @index
+    artifactType: enum(email, youtube, pdf, article)
+    link: String? @unique
+    stagingTimestamp: DateTime @index
+    createdAt: DateTime
+    updatedAt: DateTime
+}
+
+// Chunk gets a synthetic slug in nanograph (Omnigraph allowed keyless chunks;
+// nanograph requires @key on every node for update/merge/edge wiring to work).
+node Chunk {
+    slug: String @key
+    text: String
+    chunk_index: I32
+    embedding: Vector(3072) @embed(text) @index
+    createdAt: DateTime
+}
+
+
+// ──────────────────────────────────────────────
+// Edges: Core Analytical (Signal ↔ Pattern)
+// ──────────────────────────────────────────────
+
+edge FormsPattern: Signal -> Pattern
+edge ContradictsPattern: Signal -> Pattern
+
+
+// ──────────────────────────────────────────────
+// Edges: Insight → Pattern / Element
+// ──────────────────────────────────────────────
+
+edge HighlightsPattern: Insight -> Pattern
+edge ReliesOnElement: Insight -> Element
+
+
+// ──────────────────────────────────────────────
+// Edges: Pattern → Pattern
+// ──────────────────────────────────────────────
+
+edge ReliesOnPattern: Pattern -> Pattern
+edge DrivesPattern: Pattern -> Pattern
+edge ContradictsToPattern: Pattern -> Pattern
+
+
+// ──────────────────────────────────────────────
+// Edges: Signal → Element
+// ──────────────────────────────────────────────
+
+edge OnElement: Signal -> Element
+
+
+// ──────────────────────────────────────────────
+// Edges: Element → Element
+// ──────────────────────────────────────────────
+
+edge EnablesElement: Element -> Element
+edge UsesElement: Element -> Element
+
+
+// ──────────────────────────────────────────────
+// Edges: Element → Pattern
+// ──────────────────────────────────────────────
+
+edge ExemplifiesPattern: Element -> Pattern
+edge EnablesPattern: Element -> Pattern
+
+
+// ──────────────────────────────────────────────
+// Edges: Information Flow
+// ──────────────────────────────────────────────
+
+// Omnigraph original enforced cardinality on these edges
+// (PublishedBySource @card(0..1), PartOfArtifact @card(1..1) with @unique(src)).
+// nanograph does not currently support edge cardinality annotations, so these
+// constraints are application-level only: each Chunk should be inserted with a
+// single outgoing PartOfArtifact edge, and each InformationArtifact should have
+// at most one PublishedBySource.
+edge PublishedBySource: InformationArtifact -> SourceEntity
+edge ContributedByExpert: InformationArtifact -> Expert
+edge PartOfArtifact: Chunk -> InformationArtifact
+edge SpottedInArtifact: Signal -> InformationArtifact
+edge IdentifiedInArtifact: Element -> InformationArtifact
+edge SourcedFromArtifact: KnowHow -> InformationArtifact
+edge SourcedFromSource: Signal -> SourceEntity
+
+
+// ──────────────────────────────────────────────
+// Edges: Classification & Development
+// ──────────────────────────────────────────────
+
+edge RelevantCompany: Signal -> Company
+edge DevelopedByCompany: Element -> Company
+edge AffiliatedWithCompany: Expert -> Company
+
+
+// ──────────────────────────────────────────────
+// Edges: KnowHow
+// ──────────────────────────────────────────────
+
+edge ReferencesElement: KnowHow -> Element
