@@ -9,12 +9,12 @@ metadata:
 
 # nanograph industry intel — SPIKE starter bootstrap
 
-This skill takes a user from zero to a populated, queryable SPIKE graph on nanograph. Two paths:
+Takes a user from zero to a populated, queryable SPIKE graph on nanograph — either with the existing AI industry demo or a fresh custom domain (biotech, fintech, crypto, geopolitics, etc.). nanograph is embedded and local-first, so bootstrap is just `init` + `load` — no Docker, RustFS, S3, or HTTP server.
 
-- **Demo** — use the existing `spike-intel` template (AI/ML signals, early 2026). Ready to query in under a minute.
-- **Custom** — set up a new domain (biotech, crypto, fintech, geopolitics, etc.). Takes ~30–60 minutes including research and user review.
-
-nanograph is embedded and local-first — no Docker, no RustFS, no S3, no HTTP server. The database is a plain `*.nano/` directory. This makes bootstrap much simpler than the Omnigraph equivalent.
+- **Demo path** — copy the `spike-intel` template, `init`, `load`. Ready to query in under a minute.
+- **Custom path** — elicit domain + sources, adapt schema enums, research real seed content on the web, then `init` + `load`. ~30–60 minutes.
+- Five reference files cover elicitation, schema adaptation, ready-made domain enum sets, and the research → seed workflow.
+- After bootstrap, day-to-day ops live in the `nanograph-ops` skill.
 
 ## Prerequisites
 

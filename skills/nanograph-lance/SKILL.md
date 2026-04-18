@@ -5,17 +5,14 @@ description: "Safely migrate a legacy nanograph database onto the current Namesp
 
 # nanograph storage migration
 
-## Summary
+A one-shot migration of a legacy nanograph database onto the current `NamespaceLineage` storage generation. Preserves the current visible graph state, resets storage-era history, and leaves a verifiable backup — with clear rollback steps if anything looks wrong.
 
-Safely migrate a legacy nanograph database to `NamespaceLineage`.
+- Run `nanograph storage migrate --db <db>.nano --target lineage-native`
+- Keep the current committed graph state; drop old manifest/WAL-era history
+- Verify row counts, queries, embeddings, and media before deleting the backup
+- For schema changes in a healthy database, use `nanograph migrate` instead — this skill is storage-only
 
-- Use `nanograph storage migrate --db <db>.nano --target lineage-native`
-- Preserve the current visible graph state, not the old storage-era history
-- Verify row counts, queries, embeddings, and media behavior before deleting the backup
-
-For new graphs, nanograph `1.2.x` defaults to `NamespaceLineage`. That storage generation is Lance 4 namespace-backed, uses lineage-native CDC for inserts and updates, keeps delete tombstones in `__graph_deletes`, and stores committed graph state in Lance-backed internal tables such as `__graph_snapshot` and `__graph_tx`.
-
-This skill is for storage migration, not schema migration. For schema changes within a healthy database, use `nanograph migrate`.
+For new graphs, nanograph 1.2.x defaults to `NamespaceLineage`. That storage generation is Lance 4 namespace-backed, uses lineage-native CDC for inserts and updates, keeps delete tombstones in `__graph_deletes`, and stores committed graph state in Lance-backed internal tables such as `__graph_snapshot` and `__graph_tx`.
 
 ## When to use this
 

@@ -5,17 +5,13 @@ description: "Operational guide for managing nanograph embedded graph databases.
 
 # nanograph operations
 
-## Summary
+Operational guide for managing nanograph 1.2.x embedded graph databases — schema design, mutations, queries, CDC, embeddings, media, and maintenance. Teaches the defaults that prevent the usual agent mistakes: stale-schema writes, fragile raw CLI invocations, and obsolete manifest or WAL assumptions.
 
-Operate nanograph databases safely and in a way that matches the current `1.2.x` CLI and storage model.
-
-- schema-first workflow with `.pg` schemas and `.gq` queries
-- targeted mutations instead of export-edit-reload loops
+- Schema-first workflow with `.pg` schemas and `.gq` queries
+- Targeted mutations instead of export-edit-reload loops
 - `lint` for query validation, `migrate` for schema changes, `changes` for CDC
 - Gemini multimodal embeddings for text, images, audio, video, and PDFs
 - `NamespaceLineage` storage, lineage-native CDC, and `storage migrate` for legacy databases
-
-This skill teaches the operational defaults that prevent the usual agent mistakes: stale-schema writes, fragile raw CLI invocations, and obsolete manifest or WAL assumptions.
 
 ## Before doing anything
 
