@@ -1,6 +1,6 @@
 # Schema Adaptation
 
-What to **keep** vs **change** when adapting the `spike-intel` schema for a new domain. For the actual enum values per domain, see [`domain-examples.md`](domain-examples.md).
+What to **keep** vs **change** when adapting the `spike-intel` schema for a new domain. The AI schema is the only pre-built example — see [`domain-examples.md`](domain-examples.md) for its enum set and the reasoning behind each choice, then collaborate with the user to design the target domain's enums.
 
 ## What Stays (SPIKE Invariants)
 
@@ -38,14 +38,14 @@ If a new domain seems to want a new node type (e.g., `DAO` for crypto, `Mission`
 
 ## What Changes (Domain-Specific)
 
-Six enum families vary by domain. Pull the exact values from [`domain-examples.md`](domain-examples.md) — don't invent them unless the user asks for something the reference doesn't cover.
+Six enum families vary by domain. For anything other than AI, design these values in conversation with the user — use the AI set in [`domain-examples.md`](domain-examples.md) as a mental pattern, not a template to fill in.
 
-1. **`Element.kind`** — the thing-types in this domain (products, therapeutics, spacecraft, treaties, etc.). Rule of thumb: 4–7 kinds. Fewer = coarse; more = overfit.
-2. **`Signal.domain` + `Element.domain`** — sub-fields of the domain (oncology/neuro for biotech, launch/earth-obs for space). Must be declared **identically on both** Signal and Element — nanograph inlines enums, so shared enums must be duplicated.
-3. **`Company.type`** — ecosystem roles (bank/fintech/regulator, launch-provider/satellite-operator/agency, etc.).
-4. **`SourceEntity.type`** — how sources publish in this domain (journal/newsletter/governance-forum/agency-release/…).
-5. **`InformationArtifact.artifactType`** — formats the domain generates (fda-filing, launch-report, governance-vote, etc.).
-6. **Kind-specific `Element` properties** — swap the AI-specific ones (`repository`, `use_cases`, etc.) for domain-specific ones (`phase`/`trial_id` for biotech, `orbit`/`payload_mass_kg` for space).
+1. **`Element.kind`** — the thing-types in this domain. Rule of thumb: 4–7 kinds. Fewer = coarse and useless for filtering; more = overfit.
+2. **`Signal.domain` + `Element.domain`** — sub-fields or verticals. Must be declared **identically on both** Signal and Element — nanograph inlines enums, so shared enums must be duplicated.
+3. **`Company.type`** — ecosystem roles. Each company picks one primary role.
+4. **`SourceEntity.type`** — how sources publish in this domain. Derive from the source-type examples the user gives.
+5. **`InformationArtifact.artifactType`** — formats the domain generates. Derive from the source-type examples the user gives.
+6. **Kind-specific `Element` properties** — for each `Element.kind`, ask the user which 2–4 properties matter most. Swap the AI-specific ones (`repository`, `use_cases`, etc.) for the domain's.
 
 ## Using source examples to shape enums
 
@@ -96,9 +96,9 @@ The queries themselves usually don't need changes — they operate on slugs, not
 
 - [ ] Copied `templates/spike-intel/` to `<slug>/`
 - [ ] Removed template's `seed.jsonl` and `seed.md` (the user brings their own data later)
-- [ ] Updated `Element.kind` from the matching row in [`domain-examples.md`](domain-examples.md)
-- [ ] Updated `domain` enum on both `Signal` and `Element`
-- [ ] Updated `Company.type`, `SourceEntity.type`, `artifactType` from [`domain-examples.md`](domain-examples.md)
+- [ ] Designed and confirmed `Element.kind` with the user
+- [ ] Designed and confirmed `domain` enum (identical on `Signal` and `Element`)
+- [ ] Designed and confirmed `Company.type`, `SourceEntity.type`, `artifactType`
 - [ ] Replaced kind-specific `Element` properties for the domain
 - [ ] Kept `Pattern.kind` as-is
 - [ ] Updated `nanograph.toml` project name + `db.default_path`

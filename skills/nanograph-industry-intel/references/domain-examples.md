@@ -1,23 +1,16 @@
-# Domain Examples
+# AI as the Worked Ontology Example
 
-Ready-made enum sets for the six supported domains. Use as starting points — adapt to the user's specific scope. This is an **ontology reference**, not a research guide: the goal is to help the user pick schema values, not to build their source pipeline.
+The only pre-built ontology lives at `templates/spike-intel/schema.pg` (AI industry intel). It is the canonical worked example — a concrete realization of every SPIKE design choice.
 
-The canonical AI schema ships at `templates/spike-intel/schema.pg` and is the default starting point for any domain (copy it, then swap the domain-specific enums below).
+For any other domain, **do not copy enum values from here**. Use this file to understand *why* each choice was made, then design the target domain's ontology together with the user (see [Adapting to another domain](#adapting-to-another-domain)).
 
 ## Contents
 
-- [AI](#ai)
-- [Biotech](#biotech)
-- [Fintech](#fintech)
-- [Space](#space)
-- [Crypto / Web3](#crypto--web3)
-- [Geopolitics](#geopolitics)
+- [AI enum set](#ai-enum-set)
+- [Why these choices](#why-these-choices)
+- [Adapting to another domain](#adapting-to-another-domain)
 
----
-
-## AI
-
-Ships as the template. No adaptation needed — just `cp -r templates/spike-intel <destination>` and you have the AI enum set below.
+## AI enum set
 
 ```
 Element.kind:      enum(product, technology, framework, concept, ops)
@@ -28,156 +21,52 @@ SourceEntity.type: enum(blog, newsletter, video_channel, academic_repository, po
 InformationArtifact.artifactType: enum(email, youtube, pdf, article)
 ```
 
-Example source shape (if asking the user): *"Do you read Stratechery, The Information, arXiv papers, or AI-specific podcasts?"* — answers influence `SourceEntity.type` and `artifactType`.
-
----
-
-## Biotech
+Kind-specific Element properties in the AI schema:
 
 ```
-Element.kind:      enum(therapeutic, mechanism, trial, platform, device, reagent, diagnostic)
-Signal.domain:     enum(oncology, neuro, cardio, immuno, rare-disease, metabolic, infectious, gene-therapy)?
-Element.domain:    enum(oncology, neuro, cardio, immuno, rare-disease, metabolic, infectious, gene-therapy)?
-Company.type:      enum(pharma, biotech, cro, academic, investor, regulator)?
-SourceEntity.type: enum(journal, newsletter, conference, regulatory-filing, blog, podcast)?
-InformationArtifact.artifactType: enum(paper, preprint, trial-registration, fda-filing, article, pdf)
+// Product / Framework shared
+website: String?
+release_year: I32?
+license: String?
+
+// Framework-specific
+repository: String?
+use_cases: [String]?
+key_features: [String]?
+target_users: String?
+
+// Concept-specific
+definition: String?
+key_points: [String]?
 ```
 
-Kind-specific Element properties (replace the AI-specific ones):
+`Pattern.kind` — `enum(challenge, disruption, dynamic)` — stays the same across all domains.
 
-```
-// Therapeutic / trial
-phase: enum(preclinical, phase-1, phase-2, phase-3, approved, withdrawn)?
-indication: String?
-moa: String?                // mechanism of action
-modality: String?           // small-molecule, biologic, cell-therapy, gene-therapy
-sponsor: String?
-trial_id: String?           // NCT identifier
-fda_status: String?
-```
+## Why these choices
 
-Example source shape: *"FDA filings, Endpoints News, clinicaltrials.gov?"* → `artifactType` gains `fda-filing` and `trial-registration`; `SourceEntity.type` gains `regulatory-filing`.
+- **`Element.kind` (5 values)** — covers the "things" AI signals point at: shipped products, underlying technologies, reusable frameworks, concepts/ideas, and operational practices. Five is enough to disambiguate queries (`elements product` vs `elements concept`) without overfitting.
+- **`domain` (8 values)** — splits the AI landscape along the slice people actually reason about: training vs inference is the classic split, infra/harness distinguish "the rails" from "the agent loop", robotics/security/data-eng/context are recurring cross-cutting areas. Same enum on Signal and Element because they're describing the same landscape from two angles.
+- **`Company.type` (6 values)** — the ecosystem roles that matter for AI: giant platforms (bigtech), product/API companies (developer), capital (investor), labs (research), chip/silicon (hardware), and outlets (media). A company can only be one primary type here — resist multi-type.
+- **`SourceEntity.type` (6 values)** — how AI news actually ships: blogs, newsletters, YouTube, arXiv-style repos, podcasts, and institutional orgs. Enough granularity to filter `signal-sources`, not so much that categorizing becomes debatable.
+- **`artifactType` (4 values)** — covers >95% of what you'll link to: email, youtube, pdf, article. Keep it short; add only if the user routinely consumes a format not in this list.
+- **Kind-specific Element properties** — optional fields that only apply to a subset of kinds. Frameworks get `repository`, concepts get `definition` + `key_points`. Agents should populate only what's relevant; unused fields stay null.
 
-Likely pattern themes: FDA approval cascades, platform-vs-modality competition, trial-failure clusters, M&A under regulatory uncertainty.
+The pattern: **narrow enums beat broad ones**, and every enum family exists for a *querying* reason — it has to make `run elements <kind>` or `run signals <domain>` produce a sharp slice.
 
----
+## Adapting to another domain
 
-## Fintech
+When the user wants SPIKE for something other than AI (biotech, fintech, space, crypto, geopolitics, climate, anything else), do not hand them a pre-baked enum set — collaborate:
 
-```
-Element.kind:      enum(product, platform, regulation, rail, asset-class, license)
-Signal.domain:     enum(lending, payments, bnpl, neobank, wealth, infra, compliance, crypto-banking)?
-Element.domain:    enum(lending, payments, bnpl, neobank, wealth, infra, compliance, crypto-banking)?
-Company.type:      enum(bank, fintech, card-network, neobank, regulator, investor, processor, aggregator)?
-SourceEntity.type: enum(blog, newsletter, publication, regulatory-filing, earnings-call, podcast)?
-InformationArtifact.artifactType: enum(article, earnings-report, regulatory-filing, sec-disclosure, press-release, pdf)
-```
+1. **Explain the AI set above as the pattern.** Show the six enum families and say: we need the same six for your domain, tuned to what you care about.
+2. **Elicit `Element.kind`.** Ask the user: *"What kinds of things do your signals talk about? Aim for 4–7 types."* Examples to prime them, not prescribe:
+   - Biotech might distinguish therapeutics from platforms from trials.
+   - Space might distinguish launchers from spacecraft from missions.
+   - Crypto might distinguish protocols from tokens from dapps.
+   - Let the user's language drive the enum values, not these examples.
+3. **Elicit `domain`.** Ask: *"What sub-fields or verticals matter in your space?"* 5–8 values. Declare the same enum identically on `Signal` and `Element`.
+4. **Elicit `Company.type`.** Ask: *"What roles do organizations play in your ecosystem?"* Usually 4–7 values. Remind the user each company picks one primary role.
+5. **Derive `SourceEntity.type` and `artifactType` from source examples.** The SKILL.md flow already asks the user for 2–3 example source types they read — those answers give you these two enums. If they mention FDA filings → `regulatory-filing` + `fda-filing`. If they mention FCC filings and launch reports → `regulatory-filing` + `launch-report`. If they mention governance forum posts → `governance-forum` + `proposal`.
+6. **Adapt kind-specific properties.** Ask: *"For each kind you named, what 2–4 properties matter most?"* Biotech `therapeutic` probably wants `phase`, `indication`, `moa`, `trial_id`. Space `mission` wants `orbit`, `launch_date`, `mission_agency`. Don't invent — let the user's answers drive it.
+7. **Present the proposed enum block back to the user before editing `schema.pg`.** Cheap to revise here; expensive once queries and data start flowing.
 
-Kind-specific Element properties:
-
-```
-jurisdiction: String?
-license_type: String?
-asset_class: String?
-volume_usd: F64?
-customer_count: I64?
-launch_year: I32?
-```
-
-Example source shape: *"SEC filings, Matt Levine, Fintech Takes?"* → `artifactType` gains `sec-disclosure`; `SourceEntity.type` leans on `newsletter` + `regulatory-filing`.
-
-Likely pattern themes: rail modernization (RTP, FedNow, SEPA Instant), embedded finance, stablecoin-as-payment-rail, BaaS consolidation under regulatory scrutiny.
-
----
-
-## Space
-
-```
-Element.kind:      enum(launcher, spacecraft, payload, mission, constellation, platform, concept)
-Signal.domain:     enum(launch, earth-obs, comms, science, human-spaceflight, defense, deep-space, commercial)?
-Element.domain:    enum(launch, earth-obs, comms, science, human-spaceflight, defense, deep-space, commercial)?
-Company.type:      enum(launch-provider, satellite-operator, integrator, agency, investor, analyst, media)?
-SourceEntity.type: enum(newsletter, publication, podcast, agency-release, regulatory-filing, conference)?
-InformationArtifact.artifactType: enum(article, press-release, launch-report, filing, mission-report, pdf)
-```
-
-Kind-specific Element properties:
-
-```
-// Launcher / spacecraft / mission
-orbit: String?               // LEO, MEO, GEO, SSO, HEO, cislunar, interplanetary
-payload_mass_kg: F64?
-launch_date: DateTime?
-launch_provider: String?
-constellation_size: I32?     // for constellations
-vehicle_family: String?      // e.g., Falcon, Starship, Ariane
-mission_agency: String?      // NASA, ESA, CNSA, ISRO, JAXA
-```
-
-Example source shape: *"SpaceNews, Ars Technica space section, Jonathan McDowell's launch log, FCC filings?"* → `artifactType` gains `filing` (for FCC IBFS entries) and `launch-report`; `Company.type` needs `agency` (NASA, ESA) alongside commercial operators.
-
-Likely pattern themes: launch cadence acceleration, commercial LEO transition (post-ISS), mega-constellation maturation, lunar & Mars commercial contracts, GPS/PNT alternatives.
-
----
-
-## Crypto / Web3
-
-```
-Element.kind:      enum(protocol, token, dapp, standard, l1-chain, l2-chain, dao, bridge, oracle)
-Signal.domain:     enum(defi, gaming, infra, memecoins, stablecoins, privacy, identity, dex, lending, staking)?
-Element.domain:    enum(defi, gaming, infra, memecoins, stablecoins, privacy, identity, dex, lending, staking)?
-Company.type:      enum(protocol, exchange, investor, dao, l1, l2, media, market-maker, infra-provider)?
-SourceEntity.type: enum(blog, newsletter, podcast, governance-forum, on-chain-data, exchange-feed, research)?
-InformationArtifact.artifactType: enum(article, proposal, governance-vote, on-chain-tx, podcast-episode, research-report, pdf)
-```
-
-Kind-specific Element properties:
-
-```
-chain: String?              // ethereum, solana, base, etc.
-token_symbol: String?
-contract_address: String?
-tvl_usd: F64?
-mcap_usd: F64?
-governance_model: String?
-audit_status: String?
-launch_date: DateTime?
-```
-
-Example source shape: *"Bankless, Messari, on-chain data from DefiLlama, protocol governance forums?"* → `SourceEntity.type` needs `governance-forum` and `on-chain-data`; `artifactType` gains `proposal` and `governance-vote`.
-
-Likely pattern themes: L2 fragmentation vs consolidation, stablecoin regulation, DEX/CEX liquidity shifts, governance attacks, bridge exploits.
-
----
-
-## Geopolitics
-
-```
-Element.kind:      enum(treaty, sanction, conflict, election, policy, institution, actor)
-Signal.domain:     enum(us-china, europe-russia, middle-east, trade, climate-negotiations, nuclear, cyber, migration)?
-Element.domain:    enum(us-china, europe-russia, middle-east, trade, climate-negotiations, nuclear, cyber, migration)?
-Company.type:      enum(government, multilateral, think-tank, media, analyst, ngo, alliance)?
-SourceEntity.type: enum(publication, newsletter, podcast, research-institute, government-release, academic-journal)?
-InformationArtifact.artifactType: enum(article, policy-paper, communique, treaty-text, sanctions-list, speech, pdf)
-```
-
-Kind-specific Element properties:
-
-```
-jurisdiction: String?           // country or bloc
-effective_date: DateTime?
-status: enum(proposed, active, expired, withdrawn)?
-signatories: [String]?
-```
-
-Example source shape: *"Foreign Affairs, CFR, State Department briefings, Lawfare?"* → `Company.type` needs `think-tank` and `government`; `artifactType` gains `policy-paper` and `communique`.
-
-Likely pattern themes: sanctions expansions and workarounds, multi-polar alignment shifts, export-control cascades, climate-finance delivery gaps, conflict-to-negotiation transitions.
-
----
-
-## Using These as Defaults
-
-When adapting for a new domain, don't build from scratch: pick the closest domain above, copy its enum block into `schema.pg`, then tweak.
-
-If the user is vague about sources, offer the matching domain's "example source shape" prompt and adjust enums based on their answer. The goal is **enough information to shape the schema** — not a full source list or ingestion plan.
+Keep `Pattern.kind` (`challenge, disruption, dynamic`) unchanged — it's intentionally domain-agnostic and works everywhere.
