@@ -11,12 +11,11 @@ This repo contains agent skills that teach AI agents how to operate [nanograph](
 - `skills/<name>/SKILL.md` — skill definition with YAML frontmatter
 - `skills/<name>/references/` — overflow reference docs for a skill
 - `templates/<name>/` — ready-to-run graph starters (schema, seed, queries, config)
-- `templates/<name>/<skill-name>/` — skills co-located with the template they bootstrap
 
 There are three skills:
 - `nanograph-ops` — operational guide for day-to-day database work
 - `nanograph-lance` — one-shot migration of legacy databases onto `NamespaceLineage` storage
-- `nanograph-intel-bootstrap` (co-located under `templates/spike-intel/`) — bootstrap a new SPIKE intelligence graph, demo or custom domain
+- `nanograph-industry-intel` — bootstrap a new SPIKE intelligence graph from the `spike-intel` template (demo or custom domain)
 
 And one template:
 - `spike-intel` — AI/ML industry intelligence, ported from the `omnigraph-starters/industry-intel` starter

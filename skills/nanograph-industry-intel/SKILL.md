@@ -1,5 +1,5 @@
 ---
-name: nanograph-intel-bootstrap
+name: nanograph-industry-intel
 description: 'Bootstrap a new nanograph-based SPIKE industry intelligence graph from scratch. Use this skill whenever a user wants to set up a new SPIKE graph — either with the existing AI industry demo data or for a new domain (biotech, fintech, crypto, geopolitics, macroeconomics, SaaS, climate tech, etc.). The flow presents a demo-vs-custom decision, then for custom setups asks about domain scope, actors, cadence, and sources, adapts schema and enums for the target domain, runs initial web research to generate real seed content, and executes init + load. Apply aggressively when the user says any of: set up nanograph SPIKE, bootstrap a new intel graph, create a new SPIKE starter, I want to track X industry, initialize intel for Y, new graph for Z domain, start a new context graph, or similar phrasing. This skill takes a user from zero to a populated, queryable graph.'
 license: MIT
 metadata:
@@ -7,7 +7,7 @@ metadata:
   upstream: Ported from omnigraph-starters/skills/omnigraph-intel-bootstrap
 ---
 
-# SPIKE Starter Bootstrap (nanograph)
+# nanograph industry intel — SPIKE starter bootstrap
 
 This skill takes a user from zero to a populated, queryable SPIKE graph on nanograph. Two paths:
 
@@ -46,15 +46,16 @@ Branch based on the answer.
 
 ## Path A: Demo Setup
 
-The `spike-intel/` template ships alongside this skill. Copy it into the user's project directory (or wherever they want the graph to live):
+The `spike-intel/` template lives in the `nanograph-skills` repo at `templates/spike-intel/`. Copy it into the user's project directory (or wherever they want the graph to live):
 
 ```bash
-# Pick a destination — often the user's current project, or ~/graphs/spike-intel
-cp -r <path-to>/templates/spike-intel <destination>/spike-intel
+# <repo> is the path to the nanograph-skills checkout
+# <destination> is where the graph should live (the user's project, ~/graphs/, etc.)
+cp -r <repo>/templates/spike-intel <destination>/spike-intel
 cd <destination>/spike-intel
 ```
 
-If the agent is already running inside a checkout of the `nanograph-skills` repo, `<path-to>` is the repo root.
+If this skill was installed via `npx skills add`, the template ships with the bundle and is available at `<install-path>/templates/spike-intel/`.
 
 Then set up the API key and initialize:
 
@@ -143,10 +144,9 @@ Write this to `<slug>/setup-notes.md` in the new starter folder. Confirming now 
 Copy the `spike-intel` template into `<slug>/`:
 
 ```bash
-# <template> is the path to templates/spike-intel/ alongside this skill
-cp -r <template> <slug>
+# <repo> is the path to the nanograph-skills checkout (or install-path of this skill bundle)
+cp -r <repo>/templates/spike-intel <slug>
 rm <slug>/seed.jsonl <slug>/seed.md   # regenerated in Phase 6
-rm -rf <slug>/nanograph-intel-bootstrap  # the skill doesn't belong in the user's project
 ```
 
 Update in `<slug>/schema.pg`:

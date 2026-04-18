@@ -13,7 +13,8 @@ A nanograph schema + seed modeling AI/ML industry intelligence using the SPIKE f
 - `seed.md` / `seed.jsonl` — Seed dataset (human-readable / loadable).
 - `queries/*.gq` — Read and mutation queries.
 - `nanograph.toml` — Project config with query aliases.
-- `nanograph-intel-bootstrap/` — Co-located agent skill for bootstrapping new-domain SPIKE graphs.
+
+For bootstrapping a new-domain SPIKE graph using this template, see the `nanograph-industry-intel` skill at `../../skills/nanograph-industry-intel/`.
 
 ## Domain Model
 

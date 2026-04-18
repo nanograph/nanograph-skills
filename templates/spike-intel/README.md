@@ -84,7 +84,6 @@ Full property tables and constraints in [`schema.pg`](./schema.pg).
 - `queries/*.gq` — Read and mutation queries
 - `nanograph.toml` — Project config with query aliases
 - `.env.nano.example` — Template for API keys (copy to `.env.nano`, not committed)
-- `nanograph-intel-bootstrap/` — Agent skill to bootstrap a new SPIKE graph for a different domain
 
 ## Quick Start
 
@@ -111,7 +110,7 @@ nanograph is embedded — no server, no Docker, no bucket. The database lives in
 
 ## Everyday Operations
 
-See the [`nanograph-ops`](../../skills/nanograph-ops/) skill for the operational guide (mutations, schema evolution, CDC, embeddings, common gotchas). For bootstrapping a SPIKE graph in a new domain (biotech, fintech, etc.), use the [`nanograph-intel-bootstrap`](./nanograph-intel-bootstrap/) skill that ships alongside this starter.
+See the [`nanograph-ops`](../../skills/nanograph-ops/) skill for the operational guide (mutations, schema evolution, CDC, embeddings, common gotchas). For bootstrapping a SPIKE graph in a new domain (biotech, fintech, etc.), use the [`nanograph-industry-intel`](../../skills/nanograph-industry-intel/) skill.
 
 ## Bootstrap a Different Domain
 
