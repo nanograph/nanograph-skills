@@ -5,7 +5,9 @@ __pycache__/
 .vscode/
 *.skill
 node_modules/
-/lance-migrate/
-/nanograph-ops/
 pyproject.toml
 poetry.lock
+
+# nanograph local DB artifacts and secrets
+*.nano/
+.env.nano
