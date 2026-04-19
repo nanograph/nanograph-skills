@@ -23,6 +23,15 @@ query search_elements($q: String) {
     return { $e.slug, $e.name, $e.kind, $e.brief }
 }
 
+query similar_elements($q: String) {
+    match {
+        $e: Element
+    }
+    return { $e.slug, $e.name, $e.kind, $e.brief, nearest($e.embedding, $q) as score }
+    order { nearest($e.embedding, $q) }
+    limit 10
+}
+
 // Element -> Element
 
 query element_enables($slug: String) {

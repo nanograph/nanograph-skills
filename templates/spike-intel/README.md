@@ -73,7 +73,7 @@ Each pattern is backed by ~3 real, dated signals with source URLs.
 - Domain is a property, not a node
 - Edges follow `VerbTargetType` naming so direction is obvious
 - `slug` is the external identity everywhere (`sig-`, `pat-`, `el-`, `ins-`, `how-to-`, `co-`, `exp-`, `ia-`, `source-`)
-- Embeddings only on Chunk (`Vector(3072)` — requires `text-embedding-3-large` or Gemini `gemini-embedding-2-preview`)
+- Embeddings on every SPIKE node (Signal, Element, Pattern, Insight, KnowHow) + Chunk — `Vector(3072)` via Gemini `gemini-embedding-2-preview` (default) or OpenAI `text-embedding-3-large`. Semantic search aliased as `similar-signals`, `similar-patterns`, `similar-elements`, `similar-insights`, `similar-knowhow`.
 
 Full property tables and constraints in [`schema.pg`](./schema.pg).
 
@@ -92,7 +92,8 @@ All commands run from this directory.
 ```bash
 # 1. Copy the env template and add an API key
 cp .env.nano.example .env.nano
-# edit .env.nano — put OPENAI_API_KEY or GEMINI_API_KEY
+# edit .env.nano — defaults to GEMINI_API_KEY; switch to OPENAI_API_KEY if you change
+# [embedding].provider in nanograph.toml
 
 # 2. Initialize the database
 nanograph init
@@ -100,10 +101,14 @@ nanograph init
 # 3. Load the seed
 nanograph load --data seed.jsonl --mode overwrite
 
-# 4. Query via aliases
+# 4. Generate embeddings for SPIKE nodes and build indexes
+nanograph embed --only-null --reindex
+
+# 5. Query via aliases
 nanograph run patterns disruption
 nanograph run pattern-signals pat-sovereign-ai
 nanograph run signal sig-zylon-onprem-ai
+nanograph run similar-patterns "enterprises moving AI off public cloud"   # semantic
 ```
 
 nanograph is embedded — no server, no Docker, no bucket. The database lives in `spike-intel.nano/` in this directory.

@@ -31,7 +31,8 @@ If a new domain seems to want a new node type (e.g., `DAO` for crypto, `Mission`
 **Fixed properties**:
 - `slug: String @key` on every node (including `Chunk` — nanograph requires it)
 - `stagingTimestamp`, `createdAt`, `updatedAt` where they are
-- `embedding: Vector(3072) @embed(text) @index` on Chunk
+- `embedding: Vector(3072) @embed(text) @index` on Chunk (non-nullable — chunks always have text)
+- `embedding: Vector(3072)? @embed(brief) @index` on Signal, Element, Pattern, Insight, KnowHow (nullable — `brief` may be unset; backfilled via `nanograph embed --only-null`)
 - Slug prefixes: `sig-`, `pat-`, `el-`, `ins-`, `how-to-`, `co-`, `exp-`, `ia-`, `source-`
 
 **`Pattern.kind` enum**: `challenge, disruption, dynamic` — intentionally abstract, works across all domains. Only change if the user has a strong reason.

@@ -23,6 +23,15 @@ query search_patterns($q: String) {
     return { $p.slug, $p.name, $p.kind, $p.brief }
 }
 
+query similar_patterns($q: String) {
+    match {
+        $p: Pattern
+    }
+    return { $p.slug, $p.name, $p.kind, $p.brief, nearest($p.embedding, $q) as score }
+    order { nearest($p.embedding, $q) }
+    limit 10
+}
+
 // Pattern <- Signal (what signals form this pattern?)
 
 query pattern_signals($slug: String) {

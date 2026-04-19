@@ -24,6 +24,15 @@ query search_knowhow($q: String) {
     return { $k.slug, $k.name, $k.brief }
 }
 
+query similar_knowhow($q: String) {
+    match {
+        $k: KnowHow
+    }
+    return { $k.slug, $k.name, $k.brief, nearest($k.embedding, $q) as score }
+    order { nearest($k.embedding, $q) }
+    limit 10
+}
+
 // KnowHow -> Element
 
 query knowhow_elements($slug: String) {

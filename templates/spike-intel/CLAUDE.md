@@ -30,7 +30,7 @@ For bootstrapping a new-domain SPIKE graph using this template, see the `nanogra
 - PatternKind: `challenge, disruption, dynamic`
 - Domain is an enum property on Signal/Element, not a node
 - Edges follow `VerbTargetType` naming (e.g. `FormsPattern`, `DevelopedByCompany`)
-- Embeddings only on Chunk: `Vector(3072) @embed(text)`
+- Embeddings on all SPIKE nodes (Signal, Element, Pattern, Insight, KnowHow) via `Vector(3072)? @embed(brief) @index` — nullable, backfilled with `nanograph embed --only-null`. Chunk keeps non-nullable `Vector(3072) @embed(text) @index`.
 - Chunk has a synthetic `slug @key` (nanograph requires `@key` on every node)
 
 ## Validation

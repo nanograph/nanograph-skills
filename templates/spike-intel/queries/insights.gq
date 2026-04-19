@@ -15,6 +15,15 @@ query search_insights($q: String) {
     return { $i.slug, $i.name, $i.brief }
 }
 
+query similar_insights($q: String) {
+    match {
+        $i: Insight
+    }
+    return { $i.slug, $i.name, $i.brief, nearest($i.embedding, $q) as score }
+    order { nearest($i.embedding, $q) }
+    limit 10
+}
+
 // Insight -> Pattern
 
 query insight_patterns($slug: String) {

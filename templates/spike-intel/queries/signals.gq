@@ -24,6 +24,15 @@ query search_signals($q: String) {
     return { $s.slug, $s.name, $s.brief }
 }
 
+query similar_signals($q: String) {
+    match {
+        $s: Signal
+    }
+    return { $s.slug, $s.name, $s.brief, nearest($s.embedding, $q) as score }
+    order { nearest($s.embedding, $q) }
+    limit 10
+}
+
 // Signal -> Pattern (core analytical)
 
 query signal_patterns($slug: String) {

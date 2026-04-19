@@ -23,7 +23,9 @@ brew install nanograph          # or see https://nanograph.io
 nanograph version               # needs 1.2.0+
 ```
 
-Semantic search needs an API key in `.env.nano` (`OPENAI_API_KEY` or `GEMINI_API_KEY` — Gemini also covers multimodal).
+An embedding API key in `.env.nano` is required **before `nanograph load`**, not just at query time. Every SPIKE node (Signal, Element, Pattern, Insight, KnowHow) has `embedding: Vector(3072)? @embed(brief) @index`, and nanograph embeds inline during load for any `@embed(...)` field whose source value is set and whose vector column is null. No API key → load fails with a cryptic `embedding initialization failed` error.
+
+The template defaults to Gemini (`GEMINI_API_KEY`) — also covers multimodal embedding. `OPENAI_API_KEY` works too if you switch `[embedding].provider` in `nanograph.toml`. For CI or offline validation of just the schema/graph structure, set `provider = "mock"` temporarily.
 
 ## Step 1: Ask which path
 
@@ -36,18 +38,22 @@ Semantic search needs an API key in `.env.nano` (`OPENAI_API_KEY` or `GEMINI_API
 ```bash
 cp -r <repo>/templates/spike-intel <destination>/spike-intel
 cd <destination>/spike-intel
-cp .env.nano.example .env.nano     # add an API key
+cp .env.nano.example .env.nano          # add GEMINI_API_KEY (or OPENAI_API_KEY if you switched provider)
 nanograph init
-nanograph load --data seed.jsonl --mode overwrite
+nanograph load --data seed.jsonl --mode overwrite    # embeds inline — needs GEMINI_API_KEY
+nanograph embed --only-null --reindex                 # no-op on fresh load (vectors already filled); build indexes
 ```
+
+The `embed --only-null` step is a no-op on a fresh seed (load already populated every vector), but it's useful after you add records incrementally with `@embed` source fields still null. `--reindex` builds the vector indexes.
 
 `<repo>` is the `nanograph-skills` checkout (or the install path if the skill came from `npx skills add`).
 
 Verify:
 
 ```bash
-nanograph run patterns disruption           # returns SaaSpocalypse, Sovereign AI
+nanograph run patterns disruption                                      # returns SaaSpocalypse, Sovereign AI
 nanograph run pattern-signals pat-sovereign-ai
+nanograph run similar-patterns "enterprises moving AI off public cloud"  # semantic search
 ```
 
 Done. For day-to-day ops, point the user at the `nanograph-ops` skill.
@@ -138,7 +144,7 @@ cp .env.nano.example .env.nano           # add an API key
 nanograph init
 ```
 
-The database is now empty with the adapted schema. The user's next step — **loading data** — happens via the `nanograph-ops` skill (mutation queries for individual records, `nanograph load --mode merge` for batches). This skill stops here.
+The database is now empty with the adapted schema. The user's next step — **loading data** — happens via the `nanograph-ops` skill, using the mutation-alias pattern (`nanograph run add-signal ...` etc.). Avoid `nanograph load --mode merge` for operational adds — it breaks CDC continuity and Lance history. This skill stops here.
 
 ### Step 7: Hand off
 

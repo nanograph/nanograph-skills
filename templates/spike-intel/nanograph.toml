@@ -17,12 +17,12 @@ roots = ["queries"]
 
 # Vector(3072) requires a 3072-dim embedding model.
 # Options:
+#   - gemini + gemini-embedding-2-preview (native 3072, text + multimodal) — default
 #   - openai + text-embedding-3-large (native 3072, text-only)
-#   - gemini + gemini-embedding-2-preview (native 3072, text + multimodal)
 # Put the matching API key in .env.nano.
 [embedding]
-provider = "openai"
-model = "text-embedding-3-large"
+provider = "gemini"
+model = "gemini-embedding-2-preview"
 batch_size = 64
 chunk_size = 0
 chunk_overlap_chars = 128
@@ -45,6 +45,12 @@ format = "kv"
 [query_aliases.signals]
 query = "signals.gq"
 name = "recent_signals"
+format = "json"
+
+[query_aliases.similar-signals]
+query = "signals.gq"
+name = "similar_signals"
+args = ["q"]
 format = "json"
 
 [query_aliases.signal-patterns]
@@ -76,6 +82,12 @@ name = "patterns_by_kind"
 args = ["kind"]
 format = "json"
 
+[query_aliases.similar-patterns]
+query = "patterns.gq"
+name = "similar_patterns"
+args = ["q"]
+format = "json"
+
 [query_aliases.pattern-signals]
 query = "patterns.gq"
 name = "pattern_signals"
@@ -105,6 +117,12 @@ name = "elements_by_kind"
 args = ["kind"]
 format = "json"
 
+[query_aliases.similar-elements]
+query = "elements.gq"
+name = "similar_elements"
+args = ["q"]
+format = "json"
+
 [query_aliases.element-signals]
 query = "elements.gq"
 name = "element_signals"
@@ -127,6 +145,12 @@ query = "insights.gq"
 name = "get_insight"
 args = ["slug"]
 format = "kv"
+
+[query_aliases.similar-insights]
+query = "insights.gq"
+name = "similar_insights"
+args = ["q"]
+format = "json"
 
 [query_aliases.insight-patterns]
 query = "insights.gq"
@@ -154,6 +178,12 @@ format = "kv"
 [query_aliases.knowhows]
 query = "knowhow.gq"
 name = "recent_knowhow"
+format = "json"
+
+[query_aliases.similar-knowhow]
+query = "knowhow.gq"
+name = "similar_knowhow"
+args = ["q"]
 format = "json"
 
 [query_aliases.knowhow-elements]
@@ -253,6 +283,29 @@ format = "jsonl"
 query = "mutations.gq"
 name = "link_insight_relies_on_element"
 args = ["insight", "element"]
+format = "jsonl"
+
+
+# ──────────────────────────────────────────────
+# Mutations — Pattern → Pattern edges
+# ──────────────────────────────────────────────
+
+[query_aliases.link-pattern-relies-on]
+query = "mutations.gq"
+name = "link_pattern_relies_on"
+args = ["from", "to"]
+format = "jsonl"
+
+[query_aliases.link-pattern-drives]
+query = "mutations.gq"
+name = "link_pattern_drives"
+args = ["from", "to"]
+format = "jsonl"
+
+[query_aliases.link-pattern-contradicts]
+query = "mutations.gq"
+name = "link_pattern_contradicts"
+args = ["from", "to"]
 format = "jsonl"
 
 
